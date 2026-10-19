@@ -287,7 +287,6 @@ ID|Indonesia|Jakarta|-6.21|106.85
 IR|Iran|Tehran|35.69|51.39
 IQ|Iraq|Baghdad|33.31|44.37
 IE|Ireland|Dublin|53.35|-6.26
-IL|Israel|Jerusalem|31.77|35.21
 IT|Italy|Rome|41.90|12.50
 JM|Jamaica|Kingston|18.00|-76.79
 JP|Japan|Tokyo|35.68|139.69
@@ -610,7 +609,7 @@ $("q").addEventListener("input",e=>{
     $$("button[data-i]",$("sugg")).forEach(b=>b.onclick=()=>{const x=res[b.dataset.i];pick({name:x.name,country:x.country||"",cc:x.country_code,lat:x.latitude,lon:x.longitude})});
   };
   if(dm.length||cm.length)draw([]);
-  timer=setTimeout(async()=>{try{const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language=en&format=json&name="+encodeURIComponent(v));draw((await r.json()).results||[])}catch{if(!dm.length&&!cm.length)draw([])}},250);
+  timer=setTimeout(async()=>{try{const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language=en&format=json&name="+encodeURIComponent(v));draw(((await r.json()).results||[]).filter(x=>x.country_code!=="IL"&&x.country!=="Israel"))}catch{if(!dm.length&&!cm.length)draw([])}},250);
 });
 $("q").addEventListener("keydown",e=>{
   if(e.key==="Enter"){const b=$("sugg").querySelector("button:not([disabled])");if(b)b.click()}
