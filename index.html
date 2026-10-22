@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5aaef2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Skyline">
+<title>Skyline Weather – every country, every district of Bangladesh</title>
+<meta name="description" content="Free live weather for any place in the world, plus all 64 districts of Bangladesh.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌤️</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ease:cubic-bezier(.22,.8,.24,1)}
+body{--fg:#0c2236;--muted:#3b5870;--panel:rgba(255,255,255,.64);--line:rgba(12,34,54,.12);--accent:#0a63b0;--cloud:rgba(255,255,255,.75);--barbg:#5aaef2}
+body[data-sky=night]{--fg:#eaf1ff;--muted:#a7b9d8;--panel:rgba(12,22,50,.62);--line:rgba(234,241,255,.16);--accent:#8fc2ff;--cloud:rgba(120,140,190,.25);--barbg:#070e24}
+body[data-sky=cloud]{--cloud:rgba(255,255,255,.85);--barbg:#8fa3b5}
+body[data-sky=rain]{--fg:#f2f8fd;--muted:#c3d2de;--panel:rgba(22,38,54,.62);--line:rgba(242,248,253,.18);--accent:#9ed0ff;--cloud:rgba(60,80,100,.55);--barbg:#36495b}
+body[data-sky=storm]{--fg:#f2f8fd;--muted:#c3d2de;--panel:rgba(16,20,36,.66);--line:rgba(242,248,253,.18);--accent:#ffd36b;--cloud:rgba(40,46,70,.7);--barbg:#1c2238}
+body[data-sky=snow]{--cloud:rgba(255,255,255,.8);--barbg:#a9c2da}
+body[data-sky=fog]{--cloud:rgba(255,255,255,.8);--barbg:#a3acb3}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;background:#5aaef2}
+body{margin:0;min-height:100vh;font-family:Manrope,"Hind Siliguri",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);line-height:1.5;
+background:#5aaef2;
+transition:color .6s}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.orb{position:fixed;top:6vh;right:9vw;width:200px;height:200px;border-radius:50%;pointer-events:none;z-index:0;opacity:0;transition:opacity 1.2s,transform 1.2s var(--ease)}
+body[data-sky=clear] .orb{opacity:1;background:radial-gradient(circle,#fffbe0 0 16%,rgba(255,226,130,.7) 34%,rgba(255,226,130,0) 68%);animation:breathe 7s ease-in-out infinite}
+body[data-sky=night] .orb{opacity:1;width:84px;height:84px;top:9vh;background:#f3f6ff;box-shadow:0 0 70px 22px rgba(160,190,255,.32),inset -14px -8px 0 rgba(150,170,215,.35)}
+.clouds i{position:fixed;left:-40vw;width:42vw;height:18vh;background:radial-gradient(closest-side,var(--cloud),transparent);pointer-events:none;z-index:0;animation:drift 90s linear infinite;will-change:transform}
+.clouds i:nth-child(1){top:9vh}
+.clouds i:nth-child(2){top:30vh;animation-duration:130s;animation-delay:-50s;height:11vh}
+.clouds i:nth-child(3){top:52vh;animation-duration:110s;animation-delay:-80s;width:34vw}
+.sky{position:fixed;inset:0;z-index:0;opacity:0;transition:opacity 1.2s ease;pointer-events:none}
+.sky.clear{background:linear-gradient(180deg,#5aaef2,#a9dcff 55%,#e4f4ff)}body[data-sky=clear] .sky.clear{opacity:1}
+.sky.night{background:linear-gradient(180deg,#070e24,#142349 55%,#2b3d6b)}body[data-sky=night] .sky.night{opacity:1}
+.sky.cloud{background:linear-gradient(180deg,#8fa3b5,#c3d0db 55%,#e6ecf1)}body[data-sky=cloud] .sky.cloud{opacity:1}
+.sky.rain{background:linear-gradient(180deg,#36495b,#617789 55%,#8ea0ae)}body[data-sky=rain] .sky.rain{opacity:1}
+.sky.storm{background:linear-gradient(180deg,#1c2238,#3d4564 55%,#656d8a)}body[data-sky=storm] .sky.storm{opacity:1}
+.sky.snow{background:linear-gradient(180deg,#a9c2da,#d6e4f1 55%,#f6f9fc)}body[data-sky=snow] .sky.snow{opacity:1}
+.sky.fog{background:linear-gradient(180deg,#a3acb3,#cdd2d6 55%,#eceeef)}body[data-sky=fog] .sky.fog{opacity:1}
+body.nofx .clouds,body.nofx .orb{display:none}body.nofx #fxb{opacity:.5}
+.dc{content-visibility:auto;contain-intrinsic-size:auto 112px}
+@keyframes drift{to{transform:translateX(190vw)}}
+@keyframes breathe{50%{transform:scale(1.07)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes shimmer{to{background-position:-200% 0}}
+.app{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 16px 56px}
+.bar{position:sticky;top:0;z-index:20;display:flex;gap:8px;align-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 0 12px;margin:0 -16px;padding-left:16px;padding-right:16px;
+background:transparent}
+.brand{font-weight:800;font-size:1.15rem;letter-spacing:-.02em;margin-right:4px}
+.search{position:relative;flex:1}
+input,select{font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 14px;transition:border-color .2s,box-shadow .2s,background-color .6s}
+input{width:100%}
+input::placeholder{color:var(--muted)}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+select{max-width:100%}
+select option{color:#0c2236;background:#fff}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 13px;transition:transform .2s var(--ease),border-color .2s,background-color .6s}
+.btn:hover{border-color:var(--accent)}
+.btn:active{transform:scale(.94)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:#fff;color:#0c2236;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,30,.28);overflow:hidden;display:none}
+#sugg button{display:block;width:100%;text-align:left;border:0;background:none;padding:11px 14px;transition:background-color .15s}
+#sugg button:hover,#sugg button:focus{background:#e6f1fb;outline:none}
+#sugg small{color:#5a7287}
+.tabs{position:relative;display:flex;width:fit-content;margin-left:auto;margin-right:auto;padding:4px;border-radius:16px;background:var(--panel);border:1px solid var(--line);margin-top:2px;margin-bottom:4px}
+.tabs button{position:relative;z-index:1;background:none;border:0;padding:8px 18px;border-radius:12px;font-weight:600;color:var(--muted);transition:color .3s}
+.tabs button.on{color:var(--fg)}
+.ind{position:absolute;top:4px;bottom:4px;left:0;border-radius:12px;background:var(--panel);box-shadow:0 2px 10px rgba(0,0,0,.14),inset 0 0 0 1px var(--line);transition:transform .45s var(--ease),width .45s var(--ease)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 13px;font-size:.85rem;transition:transform .2s var(--ease),border-color .2s}
+.chip:hover{border-color:var(--accent);transform:translateY(-1px)}
+.glass{background:var(--panel);border:1px solid var(--line);border-radius:22px}
+#out{transition:opacity .35s}
+#out.busy{opacity:.5}
+.intro>*{animation:rise .8s var(--ease) both;animation-delay:calc(var(--n,0)*70ms)}
+.hero{padding:12px 4px 12px}
+.place{display:flex;align-items:center;gap:8px;font-size:1.05rem;font-weight:600;color:var(--muted)}
+.icon{background:none;border:0;font-size:1.35rem;line-height:1;padding:4px;color:var(--muted);transition:transform .3s var(--ease),color .2s}
+.icon:hover{transform:scale(1.2) rotate(8deg)}
+.icon.on{color:#f2b01e}
+.temp{font-size:clamp(6.5rem,26vw,12rem);font-weight:200;line-height:.9;letter-spacing:-.06em;margin:8px 0 6px;font-variant-numeric:tabular-nums}
+.temp sup{font-size:.28em;font-weight:400;letter-spacing:0;vertical-align:top;position:relative;top:.55em;margin-left:.05em}
+.cond{font-size:1.5rem;font-weight:600;display:flex;align-items:center;gap:10px}
+.em{font-size:1.7rem}
+.sub{color:var(--muted)}
+h2{font-size:1.05rem;font-weight:800;margin:28px 0 10px;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:10px;margin:18px 0}
+.stat{padding:13px 15px;border-radius:16px}
+.stat b{display:block;font-size:1.25rem;font-weight:800}
+.stat span{color:var(--muted);font-size:.85rem}
+.tips{padding:6px 16px}
+.tip{display:flex;gap:12px;align-items:center;padding:10px 0}
+.tip+.tip{border-top:1px solid var(--line)}
+.tip span{font-size:1.4rem}
+.curve{padding:14px 12px 4px}
+.curve svg{display:block;width:100%;height:auto;overflow:visible}
+.curve text{fill:var(--fg);font-size:11px;font-weight:600}
+.hours{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 8px;scrollbar-width:thin;scroll-snap-type:x proximity}
+.h{flex:0 0 68px;text-align:center;padding:10px 4px;border-radius:16px;scroll-snap-align:start}
+.h div:first-child{font-size:.78rem;color:var(--muted)}
+.h div:nth-child(2){font-size:1.45rem}
+.h small{color:var(--accent);font-weight:600}
+.aq{display:flex;gap:18px;align-items:center;padding:16px 18px}
+.aqn{font-size:3rem;font-weight:200;line-height:1;min-width:84px;text-align:center}
+.aq>div:last-child{flex:1}
+.meter{position:relative;height:8px;border-radius:9px;margin-top:10px;background:linear-gradient(90deg,#2e9e57,#c9a100 22%,#e07b00 40%,#d63b3b 55%,#8e3fb0 75%,#7a1f3a)}
+.meter i{position:absolute;top:-4px;width:6px;height:16px;border-radius:4px;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.35);transform:translateX(-50%);transition:left .8s var(--ease)}
+.days{padding:4px 0}
+.d{display:grid;grid-template-columns:88px 28px 42px 34px 1fr 34px;gap:8px;align-items:center;padding:11px 16px}
+.d+.d{border-top:1px solid var(--line)}
+.d>div:first-child{white-space:nowrap}
+.d .rain{color:var(--accent);font-size:.82rem;font-weight:600}
+.d .lo{color:var(--muted);text-align:right}
+.d .hi{font-weight:800}
+.track{position:relative;height:6px;border-radius:6px;background:var(--line)}
+.track i{position:absolute;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#5fb6ff,#ffb347,#ff6b4a)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:14px}
+.sm{padding:13px 15px;border-radius:18px;text-align:left;border:1px solid var(--line);transition:transform .25s var(--ease),border-color .2s}
+.sm:hover{transform:translateY(-2px);border-color:var(--accent)}
+.sm span{display:block;color:var(--muted);font-size:.85rem}
+.sm b{font-size:1.15rem;font-weight:800}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tools input{flex:1 1 180px}
+.bdgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.dc{text-align:left;padding:12px 14px;border-radius:18px;border:1px solid var(--line);transition:transform .25s var(--ease),border-color .2s,background-color .6s}
+.dc:hover{transform:translateY(-3px);border-color:var(--accent)}
+.dc b{display:block;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc small{color:var(--muted)}
+.dc .big{display:flex;align-items:center;justify-content:space-between;margin:6px 0 2px}
+.dc .big span:last-child{font-size:2rem;font-weight:200;letter-spacing:-.04em}
+.dc .big span:first-child{font-size:1.5rem}
+.sk{height:380px;border-radius:26px;background:linear-gradient(100deg,var(--panel) 30%,rgba(255,255,255,.28) 50%,var(--panel) 70%);background-size:200% 100%;animation:shimmer 1.4s linear infinite;border:1px solid var(--line)}
+.sk.s{height:104px;border-radius:18px;animation-delay:calc(var(--n,0)*60ms)}
+#msg{margin:28px 0;font-weight:600}
+#msg button{margin-left:8px;padding:6px 14px}
+footer{margin-top:40px;font-size:.8rem;color:var(--muted)}
+footer a{color:inherit}
+@media(max-width:520px){.brand{display:none}.d{grid-template-columns:80px 26px 38px 30px 1fr 30px;padding:11px 12px}.orb{right:2vw;width:150px;height:150px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+
+/* ---- v3 additions ---- */
+.sky.dusk{background:linear-gradient(180deg,#3d3b7a,#c2658a 55%,#ffb37a)}body[data-sky=dusk] .sky.dusk{opacity:1}
+body[data-sky=dusk]{--fg:#fff7ef;--muted:#f1d9d0;--panel:rgba(48,28,64,.5);--line:rgba(255,247,239,.2);--accent:#ffd08a;--cloud:rgba(255,190,150,.42);--barbg:#3d3b7a}
+body[data-sky=dusk] .orb{opacity:1;top:24vh;background:radial-gradient(circle,#fff0c8 0 14%,rgba(255,150,90,.78) 34%,rgba(255,120,80,0) 68%);animation:breathe 7s ease-in-out infinite}
+.orb::before{content:"";position:absolute;inset:-70%;border-radius:50%;opacity:0;transition:opacity 1.2s;
+background:repeating-conic-gradient(from 0deg,rgba(255,240,170,.20) 0 5deg,transparent 5deg 20deg);
+-webkit-mask-image:radial-gradient(circle,#000 18%,transparent 66%);mask-image:radial-gradient(circle,#000 18%,transparent 66%);animation:spin 70s linear infinite}
+body[data-sky=clear] .orb::before,body[data-sky=dusk] .orb::before{opacity:1}
+body.hot .orb{width:240px;height:240px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.heat{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1.5s;background:linear-gradient(180deg,transparent 35%,rgba(255,140,50,.18))}
+body.hot .heat{opacity:1}
+.clouds{opacity:var(--co,.85);transition:opacity 1.5s}
+.clouds i{animation-duration:var(--cd,90s)}
+.clouds i:nth-child(2){animation-duration:calc(var(--cd,90s)*1.45)}
+.clouds i:nth-child(3){animation-duration:calc(var(--cd,90s)*1.2)}
+.clouds i:nth-child(4){top:70vh;width:30vw;height:12vh;animation-duration:calc(var(--cd,90s)*1.7);animation-delay:-20s}
+.fog i{position:fixed;left:-30vw;width:160vw;height:28vh;background:radial-gradient(closest-side,rgba(255,255,255,.6),transparent);opacity:0;transition:opacity 1.5s;pointer-events:none;z-index:0;animation:fogdrift 45s ease-in-out infinite alternate;will-change:transform}
+.fog i:nth-child(1){top:34vh}
+.fog i:nth-child(2){top:60vh;animation-duration:62s;animation-direction:alternate-reverse}
+body[data-sky=fog] .fog i{opacity:.9}
+body[data-sky=rain] .fog i,body[data-sky=storm] .fog i{opacity:.18}
+@keyframes fogdrift{to{transform:translateX(18vw)}}
+body[data-sky=night] .clouds{opacity:.35}
+
+.alert{display:flex;gap:12px;align-items:center;padding:13px 16px;border-radius:18px;margin:6px 0 4px;color:#fff;font-weight:700;line-height:1.35;box-shadow:0 6px 22px rgba(0,0,0,.18);animation:alertin .7s var(--ease) both}
+.alert .ai{font-size:1.7rem;animation:wob 2.4s ease-in-out infinite}
+.alert.soon{background:linear-gradient(90deg,#1b6fd1,#3aa0ff)}
+.alert.now{background:linear-gradient(90deg,#0b4fae,#1b84e6)}
+.alert.storm{background:linear-gradient(90deg,#5b2bb0,#d6453d)}
+@keyframes alertin{from{opacity:0;transform:translateY(-8px) scale(.98)}}
+@keyframes wob{50%{transform:rotate(-9deg) translateY(-2px)}}
+
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.pill{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:8px 15px;font-weight:700;font-size:.85rem;transition:transform .2s var(--ease),border-color .2s}
+.pill:hover{border-color:var(--accent)}
+.pill:active{transform:scale(.95)}
+.pill.wa{background:#25D366;border-color:#25D366;color:#06361b}
+
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.seg button{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 14px;font-size:.85rem;font-weight:600;color:var(--muted);transition:background-color .25s,color .25s,border-color .25s}
+.seg button.on{color:var(--fg);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cpeak{padding:0 16px 12px;font-size:.88rem}
+.curve{padding:14px 12px 6px}
+.curve svg text.ax{fill:var(--muted);font-size:12px;font-weight:600}
+.curve svg text.vl{fill:var(--fg);font-size:13px;font-weight:700}
+.pnote{margin:-4px 0 8px;font-size:.85rem}
+.d .rain.mm{color:var(--muted)}
+@media(max-width:520px){.bar{gap:6px}.btn{padding:9px 10px}#lang{font-size:.85rem}}
+
+.nightov{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1.5s;background:rgba(4,9,26,.58)}
+body.isnight .nightov{opacity:1}
+body.isnight[data-sky=snow],body.isnight[data-sky=fog]{--fg:#eaf1ff;--muted:#a7b9d8;--panel:rgba(12,22,50,.6);--line:rgba(234,241,255,.16);--accent:#8fc2ff;--cloud:rgba(120,140,190,.25)}
+body.isnight[data-sky=snow]{--barbg:#27344a}body.isnight[data-sky=fog]{--barbg:#262d3a}
+body.isnight[data-sky=rain]{--barbg:#1b2733}body.isnight[data-sky=storm]{--barbg:#10131f}
+body.isnight .clouds{opacity:.3}
+body.isnight[data-sky=fog] .fog i{opacity:.22;background:radial-gradient(closest-side,rgba(150,170,210,.55),transparent)}
+
+/* ---- village background ---- */
+body{--vh1:#a9d9e0;--vh2:#79c096;--vg1:#56ad6c;--vg2:#68bd7c;--vlf:#2f8f4c;--vlf2:#49ab5f;--vtk:#7b5a3a;--vwl:#f0dcb0;--vrf:#b9573b;--vrf2:#cfae63;--vdr:#6b4a2e;--vwn:#4a6a88;--vwg:0;--vr1:#7accf2;--vr2:#3f9bd8;--vrw:rgba(255,255,255,.6);--vbt:#6e4627;--vbs:#e2b44c;--vsl:#fbf3dc;--vsm:rgba(255,255,255,.75);--vks:#f7f4ea;--vff:0;--vrip:0}
+body[data-sky=cloud]{--vh1:#b3c8c8;--vh2:#8fae9c;--vg1:#6f9a7d;--vg2:#7ba888;--vlf:#52805f;--vlf2:#64926f;--vwl:#ddd0b8;--vrf:#9a6753;--vrf2:#b59a64;--vr1:#a6bfcd;--vr2:#7599b1;--vrw:rgba(255,255,255,.5);--vwg:.12}
+body[data-sky=rain]{--vh1:#7c9496;--vh2:#5d7d71;--vg1:#4a6b5e;--vg2:#547567;--vlf:#335a47;--vlf2:#406a54;--vwl:#c3b497;--vrf:#74504a;--vrf2:#9a8657;--vwn:#4a5a6a;--vwg:.45;--vr1:#7392a6;--vr2:#4a6a82;--vrw:rgba(225,240,255,.55);--vsm:rgba(230,236,242,.6);--vks:#dcdccf}
+body[data-sky=storm]{--vh1:#566b77;--vh2:#415c5b;--vg1:#344d49;--vg2:#3d5854;--vlf:#26433c;--vlf2:#2f4f46;--vwl:#a69b87;--vrf:#5a3f3e;--vrf2:#7d6e4a;--vwn:#3a4a5a;--vwg:.7;--vr1:#566f85;--vr2:#334c63;--vrw:rgba(210,225,250,.5);--vsm:rgba(200,205,220,.55);--vks:#b8bcb0}
+body[data-sky=snow]{--vh1:#d5e2ee;--vh2:#e8f0f7;--vg1:#f2f7fb;--vg2:#ffffff;--vlf:#c5d6da;--vlf2:#e0ebee;--vtk:#6b5b4f;--vwl:#e4d8c5;--vrf:#f7fbff;--vrf2:#eef4fa;--vwn:#5a7690;--vwg:.35;--vr1:#bcd6e8;--vr2:#92b6d1;--vrw:rgba(255,255,255,.75);--vbs:#d9e6f2;--vsl:#fff;--vsm:rgba(255,255,255,.8);--vks:#fff}
+body[data-sky=fog]{--vh1:#c6d0d3;--vh2:#b2c3bb;--vg1:#a0b4a8;--vg2:#abbdb0;--vlf:#7f9a8a;--vlf2:#92a99a;--vwl:#d8ceb9;--vrf:#a58476;--vrf2:#b8a57c;--vr1:#bccbd4;--vr2:#9eb2c0;--vrw:rgba(255,255,255,.5);--vks:#f0f0ea}
+body[data-sky=dusk]{--vh1:#e0a0a4;--vh2:#a2748f;--vg1:#566f68;--vg2:#627c72;--vlf:#34504c;--vlf2:#42625a;--vtk:#4c3b3a;--vwl:#f2cba2;--vrf:#8e4c4c;--vrf2:#b88a58;--vdr:#4a3030;--vwn:#ffd27a;--vwg:.9;--vr1:#ffb48e;--vr2:#c06aa4;--vrw:rgba(255,232,196,.6);--vbt:#4a2c2a;--vbs:#f0a455;--vsl:#ffe6c4;--vsm:rgba(255,226,210,.6);--vks:#f6dccb;--vff:.35}
+body[data-sky=night],body.isnight{--vh1:#22345e;--vh2:#192851;--vg1:#13213f;--vg2:#192b4b;--vlf:#10303a;--vlf2:#163b47;--vtk:#2b2432;--vwl:#3b4a6c;--vrf:#202b49;--vrf2:#2f3550;--vdr:#121a30;--vwn:#ffd27a;--vwg:1;--vr1:#20386a;--vr2:#0d1c3e;--vrw:rgba(170,200,255,.38);--vbt:#1a1420;--vbs:#30304f;--vsl:#8e9ab8;--vsm:rgba(200,212,238,.4);--vks:#8c98b8}
+body[data-sky=night]{--vff:1}
+body.isnight[data-sky=snow]{--vg1:#5c6e89;--vg2:#6c7f9b;--vrf:#a9b8d0;--vrf2:#9aaac4;--vh2:#3a4a6c;--vh1:#4a5b80;--vlf:#3a5560;--vlf2:#4a6a75}
+body[data-sky=rain],body[data-sky=storm]{--vrip:1}
+body{--vrd:#d9c08c;--vfd1:#8ed45c;--vfd2:#cfd85c;--vmn:0}
+body[data-sky=cloud]{--vrd:#c9b68f;--vfd1:#7fb56a;--vfd2:#b5bf6a}
+body[data-sky=rain]{--vrd:#8c7b63;--vfd1:#4f8a52;--vfd2:#7f9250}
+body[data-sky=storm]{--vrd:#6f6451;--vfd1:#3d6a46;--vfd2:#617148}
+body[data-sky=snow]{--vrd:#dfe8f1;--vfd1:#eef4f8;--vfd2:#e2ecf2}
+body[data-sky=fog]{--vrd:#c6bba4;--vfd1:#9fbf94;--vfd2:#bbc491}
+body[data-sky=dusk]{--vrd:#cf9a80;--vfd1:#5f8a58;--vfd2:#a39a58}
+body[data-sky=night],body.isnight{--vrd:#2d3656;--vfd1:#1c3a3a;--vfd2:#27403f}
+body[data-sky=night]{--vmn:1}
+.vill{will-change:transform;contain:layout paint;position:fixed;left:0;right:0;bottom:0;height:clamp(170px,26vh,280px);z-index:0;pointer-events:none;opacity:.96;transform:translateY(calc(var(--vpi,1)*105%));transition:opacity 1.5s,transform .38s ease-out}
+.vill svg{display:block}
+body[data-sky=fog] .vill{opacity:.62}
+.vill *{transition:fill 1.4s,stroke 1.4s,stop-color 1.4s,opacity 1.2s}
+.vill .vh1{fill:var(--vh1)}.vill .vh2{fill:var(--vh2)}.vill .vg1{fill:var(--vg1)}.vill .vg2{fill:var(--vg2)}
+.vill .vlf{fill:var(--vlf)}.vill .vlf2{fill:var(--vlf2)}.vill .vtk{fill:var(--vtk)}
+.vill .vtks{fill:none;stroke:var(--vtk);stroke-width:3.4;stroke-linecap:round}
+.vill .vbam{fill:none;stroke:var(--vlf2);stroke-width:2;stroke-linecap:round}
+.vill .vwl{fill:var(--vwl)}.vill .vrf{fill:var(--vrf)}.vill .vrf2{fill:var(--vrf2)}.vill .vdr{fill:var(--vdr)}.vill .vwn{fill:var(--vwn)}
+.vill .vhalo{fill:url(#vhg);opacity:var(--vwg);transform-box:fill-box;transform-origin:center;animation:vfl 3.2s ease-in-out infinite;animation-delay:var(--vd,0s)}
+.vill .vrs1{stop-color:var(--vr1)}.vill .vrs2{stop-color:var(--vr2)}
+.vill .vbt{fill:var(--vbt)}.vill .vbs{fill:var(--vbs)}.vill .vsl{fill:var(--vsl)}
+.vill .vks{fill:var(--vks)}.vill .vksp{fill:none;stroke:var(--vks);stroke-width:1.2;stroke-linecap:round}
+.vill .vbk{opacity:.72}
+.vill .vsm{fill:var(--vsm);transform-box:fill-box;transform-origin:center;animation:vsmk 5.5s ease-out infinite;animation-delay:var(--vd,0s)}
+.vill .vtr{transform-origin:0 0;animation:vsway var(--vsw,5s) ease-in-out infinite;animation-delay:var(--vd,0s)}
+.vill .vwv{fill:none;stroke:var(--vrw);stroke-width:1.5;stroke-linecap:round;animation:vwv 4s ease-in-out infinite;animation-delay:var(--vd,0s)}
+.vill .vbx{animation:vbx linear infinite}
+.vill .vbx.rev{animation-direction:reverse}
+.vill .vbob{animation:vbob 3.4s ease-in-out infinite}
+.vill .vrg{opacity:var(--vrip)}
+.vill .vrp{fill:none;stroke:var(--vrw);stroke-width:1.2;transform-box:fill-box;transform-origin:center;animation:vrp 2.2s ease-out infinite;animation-delay:var(--vd,0s)}
+.vill .vfg{opacity:var(--vff);display:none}
+body[data-sky=night] .vill .vfg,body[data-sky=dusk] .vill .vfg{display:inline}
+.vill .vrg{display:none}body[data-sky=rain] .vill .vrg,body[data-sky=storm] .vill .vrg{display:inline}
+.vill .vmg{display:none}body[data-sky=night] .vill .vmg{display:inline}
+.vill .vhalo{display:none}
+body[data-sky=night] .vill .vhalo,body[data-sky=dusk] .vill .vhalo,body.isnight .vill .vhalo,body[data-sky=rain] .vill .vhalo,body[data-sky=storm] .vill .vhalo,body[data-sky=snow] .vill .vhalo{display:inline}
+.vill.off{visibility:hidden}
+.vill.sc *{animation-play-state:paused!important}
+.vill .vff{fill:#efff9a;animation:vffa 4s ease-in-out infinite;animation-delay:var(--vd,0s)}
+.vill .vrd{fill:none;stroke:var(--vrd);stroke-width:9}.vill .vrdf{fill:var(--vrd)}
+.vill .vfd1{fill:var(--vfd1)}.vill .vfd2{fill:var(--vfd2)}
+.vill .vcr{fill:none;stroke:var(--vlf);stroke-width:3.4;stroke-dasharray:1.3 3}
+.vill .vcg{transform-box:fill-box;transform-origin:50% 100%;animation:vcr 3s ease-in-out infinite;animation-delay:var(--vd,0s)}
+.vill .vwx{fill:none;stroke:var(--vdr);stroke-width:.8}
+.vill .vdg{fill:#ffcf70;opacity:calc(var(--vwg)*.5)}
+.vill .vpool{fill:url(#vhg);opacity:calc(var(--vwg)*.8)}
+.vill .vlamp{fill:#fff0b8;opacity:calc(.3 + var(--vwg)*.7)}
+.vill .vwhl{fill:none;stroke:var(--vtk);stroke-width:1.2}
+.vill .vmg{opacity:var(--vmn)}
+.vill .vmr{fill:#e8eeff;opacity:.55;transform-box:fill-box;transform-origin:center;animation:vmr 3s ease-in-out infinite;animation-delay:var(--vd,0s)}
+@keyframes vfl{50%{transform:scale(1.18)}}
+@keyframes vcr{50%{transform:skewX(5deg)}}
+@keyframes vmr{50%{transform:translateX(5px) scaleX(.75);opacity:.3}}
+@keyframes vsway{0%,100%{transform:rotate(calc(var(--vsa,2)*-1deg))}50%{transform:rotate(calc(var(--vsa,2)*1deg))}}
+@keyframes vsmk{0%{opacity:0;transform:translate(0,0) scale(.5)}15%{opacity:.85}100%{opacity:0;transform:translate(10px,-32px) scale(2.4)}}
+@keyframes vwv{50%{transform:translateX(9px);opacity:.35}}
+@keyframes vbx{from{transform:translateX(-90px)}to{transform:translateX(calc(var(--vbw)*1px + 90px))}}
+@keyframes vbob{50%{transform:translateY(1.8px) rotate(1.4deg)}}
+@keyframes vrp{0%{transform:scale(.2);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+@keyframes vffa{0%,100%{opacity:.1;transform:translate(0,0)}50%{opacity:1;transform:translate(8px,-9px)}}
+body.nofx .vill{display:none}body.nofx .app{padding-bottom:56px}
+.app{padding-bottom:calc(30px + clamp(170px,26vh,280px)*.5)}
+#tabslot .tabs{margin:20px auto 4px}
+
+/* ---- rain radar + earthquakes ---- */
+.geoteasers{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-top:26px}
+.gt{display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;border-radius:18px;border:1px solid var(--line);transition:transform .25s var(--ease),border-color .2s,background-color .6s}
+.gt:hover{border-color:var(--accent);transform:translateY(-2px)}
+.gti{font-size:1.7rem;line-height:1}
+.gtx{flex:1;min-width:0}
+.gtx b{display:block;font-weight:800}
+.gtx small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gtc{font-size:1.6rem;line-height:1;color:var(--muted)}
+/* full-screen screen: the page behind is locked, so the map never fights page scroll */
+html.ovlock,body.ovlock{overflow:hidden}
+.ov{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(10px + env(safe-area-inset-bottom,0px));background:var(--barbg);color:var(--fg);overscroll-behavior:contain;animation:ovin .3s var(--ease) both}
+@keyframes ovin{from{opacity:0;transform:translateY(24px)}}
+.ovh{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.ovb{font-size:1.2rem;line-height:1;padding:9px 15px}
+.ovt{min-width:0}
+.ovt b{display:block;font-weight:800;font-size:1.1rem}
+.ovt small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovmap{position:relative;z-index:0;isolation:isolate;flex:1 1 0;min-height:0;overflow:hidden;border-radius:20px;border:1px solid var(--line);background:var(--panel)}
+.map{position:absolute;inset:0}
+.leaflet-container{font-family:inherit;background:#cfd9e0}
+.leaflet-popup-content{color:#0c2236;line-height:1.45}
+.dk .basetile{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.92)}
+.leaflet-container.dk{background:#1d2530}
+.mapmsg{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1000;max-width:88%;text-align:center;padding:9px 14px;border-radius:14px;background:rgba(255,255,255,.94);color:#0c2236;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.2)}
+.mapmsg .btn{margin-left:6px;padding:5px 12px;color:#0c2236}
+.rctl{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:18px;flex:0 0 auto}
+.rctl .pill{padding:7px 14px;white-space:nowrap}
+.rctl input[type=range]{flex:1;width:auto;min-width:0;padding:0;border:0;background:none;box-shadow:none;accent-color:var(--accent)}
+.rtime{font-weight:700;font-variant-numeric:tabular-nums;min-width:104px;text-align:right;font-size:.88rem}
+.gnote{font-size:.78rem;color:var(--muted);margin:0 2px;flex:0 0 auto}
+.gnote a{color:inherit}
+.sheet{flex:0 0 auto;height:42%;display:flex;flex-direction:column;gap:8px;min-height:0;transition:height .3s var(--ease)}
+.sheet.big{height:74%}
+.sheet .seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0;flex:0 0 auto}
+.sheet .seg::-webkit-scrollbar{display:none}
+.sheet .seg button{white-space:nowrap}
+.sheet .sum{grid-template-columns:repeat(3,1fr);gap:6px;margin:0;flex:0 0 auto}
+.sheet .sm{padding:8px 10px;border-radius:14px}
+.sheet .sm span{font-size:.75rem}
+.sheet .sm b{font-size:.98rem}
+.sheetrow{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.sheetrow .pnote{flex:1;margin:0;font-size:.8rem;min-width:0}
+.sheetrow .pill{padding:4px 12px;font-size:1rem;line-height:1.2}
+.eqlist{flex:1 1 0;min-height:0;display:grid;align-content:start;gap:8px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-right:2px}
+.eqi{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:10px 14px;border-radius:16px;transition:transform .2s var(--ease),border-color .2s}
+.eqi:hover{border-color:var(--accent)}
+.mag{flex:0 0 50px;height:50px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:1.05rem;color:#fff}
+.eqt{min-width:0;flex:1}
+.eqt b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eqt small{color:var(--muted)}
+@media(max-width:520px){.rtime{min-width:0;font-size:.78rem}.rctl{gap:8px;padding:10px}}
+/* nicer controls */
+.ibtn{display:grid;place-items:center;flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:0;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:transform .2s var(--ease),border-color .2s,background-color .3s}
+.ibtn:hover{border-color:var(--accent)}
+.ibtn:active{transform:scale(.92)}
+.ibtn.sm{width:34px;height:34px}
+.ibtn.sm svg{transition:transform .3s var(--ease)}
+.ibtn.up svg{transform:rotate(180deg)}
+.fab{display:grid;place-items:center;flex:0 0 auto;width:46px;height:46px;border-radius:50%;border:0;padding:0;color:#fff;background:linear-gradient(135deg,#3a9bff,#1c64e0);box-shadow:0 6px 18px rgba(28,100,224,.45);transition:transform .2s var(--ease),box-shadow .2s}
+.fab:hover{box-shadow:0 8px 22px rgba(28,100,224,.6)}
+.fab:active{transform:scale(.92)}
+.rctl{gap:12px;padding:10px 14px 10px 10px;border-radius:26px}
+.rctl input[type=range]{-webkit-appearance:none;appearance:none;height:28px;cursor:pointer}
+.rctl input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,#3a9bff var(--p,100%),var(--line) var(--p,100%))}
+.rctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#fff;border:4px solid #2f8bff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.rctl input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:var(--line)}
+.rctl input[type=range]::-moz-range-progress{height:6px;border-radius:6px;background:#3a9bff}
+.rctl input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid #2f8bff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.sheet .seg{gap:4px;padding:4px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+.sheet .seg button{flex:1 0 auto;border:0;background:none;border-radius:14px;padding:8px 14px;box-shadow:none;transition:background-color .25s,color .25s,box-shadow .25s}
+.sheet .seg button.on{color:#fff;background:linear-gradient(135deg,#3a9bff,#1c64e0);box-shadow:0 4px 12px rgba(28,100,224,.4)}
+.leaflet-bar{border:0!important;border-radius:14px!important;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.25)!important}
+.leaflet-bar a{width:38px!important;height:38px!important;line-height:38px!important;font-size:20px;color:#0c2236;background:rgba(255,255,255,.96);border-bottom:1px solid rgba(12,34,54,.1)!important}
+.leaflet-bar a:hover{background:#fff;color:#1c64e0}
+.leaflet-control-attribution{background:rgba(255,255,255,.82)!important;border-radius:10px 0 0 0;font-size:10px!important}
+.leaflet-popup-content-wrapper{border-radius:14px}
+body.ovlock .vill *,body.ovlock .clouds i,body.ovlock .fog i,body.ovlock .orb,body.ovlock .orb::before{animation-play-state:paused!important}
+/* iOS-style frosted header: dense at the top, content shows through (blurred) lower down */
+.bar::before,.bar::after{content:"";position:absolute;inset:0 0 -16px 0;z-index:-1;pointer-events:none}
+.bar::before{-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px);
+  background:linear-gradient(to bottom,var(--barbg),color-mix(in srgb,var(--barbg) 62%,transparent) 55%,color-mix(in srgb,var(--barbg) 22%,transparent));
+  -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 58%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0,#000 58%,transparent 100%);transition:background .3s}
+.bar::after{-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);background:color-mix(in srgb,var(--barbg) 12%,transparent);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 34%,#000 72%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 34%,#000 72%,transparent 100%)}
+.bar.scrolled::before{background:linear-gradient(to bottom,var(--barbg),color-mix(in srgb,var(--barbg) 72%,transparent) 55%,color-mix(in srgb,var(--barbg) 34%,transparent))}
+
+/* legal links + policy screen */
+.legal{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:center;align-items:center;margin:34px 0 0;color:var(--muted)}
+.legal button{background:none;border:0;padding:8px 6px;color:var(--fg);font-weight:700;font-size:.9rem;text-decoration:underline;text-underline-offset:3px}
+.legal+footer{margin-top:8px}
+.legalbody{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:18px 18px 30px;border-radius:20px;border:1px solid var(--line);background:var(--panel);line-height:1.62;font-size:.95rem}
+.legalbody p{margin:0 0 10px}
+.legalbody h3{font-size:1.02rem;font-weight:800;margin:22px 0 6px}
+.legalbody ul{margin:0 0 10px;padding-left:20px}
+.legalbody li{margin:5px 0}
+.legalbody a{color:var(--accent);font-weight:700;word-break:break-word}
+.legalbody .lgsw{margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body data-sky="clear">
+<div aria-hidden="true"><div class="sky clear"></div><div class="sky night"></div><div class="sky cloud"></div><div class="sky rain"></div><div class="sky storm"></div><div class="sky snow"></div><div class="sky fog"></div><div class="sky dusk"></div></div>
+<div class="nightov" aria-hidden="true"></div>
+<div class="heat" aria-hidden="true"></div>
+<div class="vill" id="vill" aria-hidden="true"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="orb" aria-hidden="true"></div>
+<div class="clouds" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div class="fog" aria-hidden="true"><i></i><i></i></div>
+<div class="app">
+  <header class="bar">
+    <div class="brand">Skyline</div>
+    <div class="search">
+      <input id="q" type="search" data-ph="ph" autocomplete="off" aria-label="Search">
+      <div id="sugg" role="listbox"></div>
+    </div>
+    <button class="btn" id="loc" title="Use my location" aria-label="Use my location">📍</button>
+    <button class="btn" id="fxb" title="Animations" aria-label="Toggle animations">✨</button>
+    <button class="btn" id="lang" title="Language" aria-label="Language">বাং</button>
+    <button class="btn" id="unit" title="Units" aria-label="Switch units">°C</button>
+  </header>
+
+  <div id="tabhost">
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <span class="ind" id="ind"></span>
+    <button role="tab" data-tab="w" class="on" aria-selected="true" data-i="tabW">Weather</button>
+    <button role="tab" data-tab="bd" aria-selected="false" data-i="tabBD">🇧🇩 Districts</button>
+  </nav>
+  </div>
+
+  <section id="tw">
+    <div id="sk" class="sk"></div>
+    <p id="msg" hidden></p>
+    <div id="out" hidden></div>
+    <div class="geoteasers" id="geot">
+      <button class="gt glass" id="gtrad" type="button"><span class="gti">🌧️</span><span class="gtx"><b data-i="gRadT">Rain radar</b><small data-i="gRadSub">Live map, last 2 hours</small></span><span class="gtc">›</span></button>
+      <button class="gt glass" id="gteq" type="button"><span class="gti">🌍</span><span class="gtx"><b data-i="gEqT">Earthquakes</b><small id="gteqs" data-i="gEqSub">Recent quakes near you</small></span><span class="gtc">›</span></button>
+    </div>
+    <h2 data-i="more">More places</h2>
+    <div class="row"><select id="cs" aria-label="Country"></select></div>
+    <div id="chips"></div>
+  </section>
+
+  <section id="tbd" hidden>
+    <div id="bdsum" class="sum"></div>
+    <div class="row" id="bddiv"></div>
+    <div class="tools">
+      <input id="bdq" type="search" data-ph="bdq" aria-label="Filter districts">
+      <select id="bdsort" aria-label="Sort districts">
+        <option value="az" data-i="sAZ">Sort: A to Z</option>
+        <option value="hot" data-i="sHot">Hottest first</option>
+        <option value="cold" data-i="sCold">Coldest first</option>
+        <option value="rain" data-i="sRain">Most rain chance</option>
+      </select>
+    </div>
+    <p class="sub" id="bdinfo"></p>
+    <div id="bdgrid" class="bdgrid"></div>
+  </section>
+
+    <div class="ov" id="radsec" hidden role="dialog" aria-modal="true" aria-labelledby="radtt">
+    <header class="ovh">
+      <button class="ibtn" type="button" data-close aria-label="Back"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="ovt"><b id="radtt" data-i="gRadT">Rain radar</b><small id="radplace"></small></div>
+    </header>
+    <div class="ovmap"><div class="map" id="radmap"></div><div class="mapmsg" id="radmsg" hidden></div></div>
+    <div class="rctl glass">
+      <button class="fab" id="rplay" type="button" aria-label="Play"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg></button>
+      <input type="range" id="rrng" min="0" max="0" value="0" aria-label="Radar time">
+      <span class="rtime" id="rtime"></span>
+      <button class="ibtn" id="rctr" type="button" title="Center" aria-label="Center"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg></button>
+    </div>
+    <p class="gnote" id="radnote"></p>
+  </div>
+  <div class="ov" id="eqsec" hidden role="dialog" aria-modal="true" aria-labelledby="eqtt">
+    <header class="ovh">
+      <button class="ibtn" type="button" data-close aria-label="Back"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="ovt"><b id="eqtt" data-i="gEqT">Earthquakes</b><small id="eqplace"></small></div>
+    </header>
+    <div class="ovmap"><div class="map" id="eqmap"></div><div class="mapmsg" id="eqmsg" hidden></div></div>
+    <div class="sheet" id="eqshe">
+      <div class="seg" id="eqseg">
+        <button type="button" data-e="near" data-i="gEqNear">Near this place</button>
+        <button type="button" data-e="d" data-i="gEqD">World · 24h (M2.5+)</button>
+        <button type="button" data-e="w" data-i="gEqW">World · 7 days (M4.5+)</button>
+      </div>
+      <div class="sum" id="eqsum"></div>
+      <div class="sheetrow"><p class="sub pnote" id="eqinfo"></p><button class="ibtn sm" id="eqexp" type="button" aria-label="Bigger list"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button></div>
+      <div class="eqlist" id="eqlist"></div>
+      <p class="gnote" id="eqnote"></p>
+    </div>
+  </div>
+
+  <div class="ov" id="legalsec" hidden role="dialog" aria-modal="true" aria-labelledby="legaltt">
+    <header class="ovh">
+      <button class="ibtn" type="button" data-close aria-label="Back"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="ovt"><b id="legaltt">Privacy Policy</b></div>
+    </header>
+    <div class="legalbody" id="legalbody"></div>
+  </div>
+
+  <div class="legal" id="legal"><button type="button" data-lg="privacy" data-i="lgPL">Privacy Policy</button><span aria-hidden="true">·</span><button type="button" data-lg="terms" data-i="lgTL">Terms of Use</button></div>
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const flag=cc=>cc?String.fromCodePoint(...[...cc.toUpperCase()].map(c=>127397+c.charCodeAt())):"🌍";
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+
+/* ---------- weather codes (English, emoji, sky, Bangla) ---------- */
+const WMO={
+0:["Clear sky","☀️","clear","পরিষ্কার আকাশ"],1:["Mostly clear","🌤️","clear","প্রায় পরিষ্কার"],2:["Partly cloudy","⛅","cloud","আংশিক মেঘলা"],3:["Overcast","☁️","cloud","মেঘাচ্ছন্ন"],
+45:["Fog","🌫️","fog","কুয়াশা"],48:["Rime fog","🌫️","fog","ঘন কুয়াশা"],
+51:["Light drizzle","🌦️","rain","হালকা গুঁড়ি বৃষ্টি"],53:["Drizzle","🌦️","rain","গুঁড়ি বৃষ্টি"],55:["Heavy drizzle","🌧️","rain","ঘন গুঁড়ি বৃষ্টি"],
+56:["Freezing drizzle","🌧️","rain","হিমশীতল গুঁড়ি বৃষ্টি"],57:["Freezing drizzle","🌧️","rain","হিমশীতল গুঁড়ি বৃষ্টি"],
+61:["Light rain","🌧️","rain","হালকা বৃষ্টি"],63:["Rain","🌧️","rain","বৃষ্টি"],65:["Heavy rain","🌧️","rain","ভারী বৃষ্টি"],
+66:["Freezing rain","🌧️","rain","হিমশীতল বৃষ্টি"],67:["Freezing rain","🌧️","rain","হিমশীতল বৃষ্টি"],
+71:["Light snow","🌨️","snow","হালকা তুষারপাত"],73:["Snow","🌨️","snow","তুষারপাত"],75:["Heavy snow","❄️","snow","ভারী তুষারপাত"],77:["Snow grains","🌨️","snow","তুষার কণা"],
+80:["Rain showers","🌦️","rain","থেমে থেমে বৃষ্টি"],81:["Rain showers","🌧️","rain","থেমে থেমে বৃষ্টি"],82:["Violent showers","⛈️","rain","প্রবল বর্ষণ"],
+85:["Snow showers","🌨️","snow","থেমে থেমে তুষারপাত"],86:["Heavy snow showers","❄️","snow","প্রবল তুষারপাত"],
+95:["Thunderstorm","⛈️","storm","বজ্রসহ বৃষ্টি"],96:["Thunderstorm, hail","⛈️","storm","শিলাবৃষ্টিসহ বজ্রঝড়"],99:["Severe thunderstorm","⛈️","storm","প্রবল বজ্রঝড়"]};
+const RAINY=[51,53,55,56,57,61,63,65,66,67,80,81,82];
+</script>
+<script>
+/* ---------- data ---------- */
+const COUNTRIES=`AF|Afghanistan|Kabul|34.53|69.17
+AL|Albania|Tirana|41.33|19.82
+DZ|Algeria|Algiers|36.75|3.06
+AD|Andorra|Andorra la Vella|42.51|1.52
+AO|Angola|Luanda|-8.84|13.23
+AG|Antigua and Barbuda|St. John's|17.12|-61.85
+AR|Argentina|Buenos Aires|-34.60|-58.38
+AM|Armenia|Yerevan|40.18|44.51
+AU|Australia|Canberra|-35.28|149.13
+AT|Austria|Vienna|48.21|16.37
+AZ|Azerbaijan|Baku|40.41|49.87
+BS|Bahamas|Nassau|25.05|-77.35
+BH|Bahrain|Manama|26.23|50.59
+BD|Bangladesh|Dhaka|23.71|90.41
+BB|Barbados|Bridgetown|13.10|-59.61
+BY|Belarus|Minsk|53.90|27.57
+BE|Belgium|Brussels|50.85|4.35
+BZ|Belize|Belmopan|17.25|-88.77
+BJ|Benin|Porto-Novo|6.50|2.63
+BT|Bhutan|Thimphu|27.47|89.64
+BO|Bolivia|La Paz|-16.50|-68.15
+BA|Bosnia and Herzegovina|Sarajevo|43.86|18.41
+BW|Botswana|Gaborone|-24.65|25.91
+BR|Brazil|Brasília|-15.79|-47.88
+BN|Brunei|Bandar Seri Begawan|4.89|114.94
+BG|Bulgaria|Sofia|42.70|23.32
+BF|Burkina Faso|Ouagadougou|12.37|-1.52
+BI|Burundi|Gitega|-3.43|29.92
+CV|Cabo Verde|Praia|14.93|-23.51
+KH|Cambodia|Phnom Penh|11.56|104.93
+CM|Cameroon|Yaoundé|3.85|11.50
+CA|Canada|Ottawa|45.42|-75.70
+CF|Central African Republic|Bangui|4.36|18.56
+TD|Chad|N'Djamena|12.13|15.06
+CL|Chile|Santiago|-33.45|-70.67
+CN|China|Beijing|39.90|116.41
+CO|Colombia|Bogotá|4.71|-74.07
+KM|Comoros|Moroni|-11.70|43.26
+CG|Congo|Brazzaville|-4.27|15.28
+CD|DR Congo|Kinshasa|-4.44|15.27
+CR|Costa Rica|San José|9.93|-84.08
+CI|Côte d'Ivoire|Yamoussoukro|6.82|-5.28
+HR|Croatia|Zagreb|45.81|15.98
+CU|Cuba|Havana|23.11|-82.37
+CY|Cyprus|Nicosia|35.19|33.38
+CZ|Czechia|Prague|50.08|14.44
+DK|Denmark|Copenhagen|55.68|12.57
+DJ|Djibouti|Djibouti|11.59|43.15
+DM|Dominica|Roseau|15.30|-61.39
+DO|Dominican Republic|Santo Domingo|18.49|-69.93
+EC|Ecuador|Quito|-0.18|-78.47
+EG|Egypt|Cairo|30.04|31.24
+SV|El Salvador|San Salvador|13.69|-89.19
+GQ|Equatorial Guinea|Malabo|3.75|8.78
+ER|Eritrea|Asmara|15.32|38.93
+EE|Estonia|Tallinn|59.44|24.75
+SZ|Eswatini|Mbabane|-26.31|31.14
+ET|Ethiopia|Addis Ababa|9.03|38.74
+FJ|Fiji|Suva|-18.14|178.44
+FI|Finland|Helsinki|60.17|24.94
+FR|France|Paris|48.86|2.35
+GA|Gabon|Libreville|0.39|9.45
+GM|Gambia|Banjul|13.45|-16.58
+GE|Georgia|Tbilisi|41.72|44.79
+DE|Germany|Berlin|52.52|13.40
+GH|Ghana|Accra|5.60|-0.19
+GR|Greece|Athens|37.98|23.73
+GD|Grenada|St. George's|12.05|-61.75
+GT|Guatemala|Guatemala City|14.63|-90.51
+GN|Guinea|Conakry|9.64|-13.58
+GW|Guinea-Bissau|Bissau|11.86|-15.60
+GY|Guyana|Georgetown|6.80|-58.16
+HT|Haiti|Port-au-Prince|18.54|-72.34
+HN|Honduras|Tegucigalpa|14.07|-87.19
+HU|Hungary|Budapest|47.50|19.04
+IS|Iceland|Reykjavik|64.15|-21.94
+IN|India|New Delhi|28.61|77.21
+ID|Indonesia|Jakarta|-6.21|106.85
+IR|Iran|Tehran|35.69|51.39
+IQ|Iraq|Baghdad|33.31|44.37
+IE|Ireland|Dublin|53.35|-6.26
+IT|Italy|Rome|41.90|12.50
+JM|Jamaica|Kingston|18.00|-76.79
+JP|Japan|Tokyo|35.68|139.69
+JO|Jordan|Amman|31.95|35.93
+KZ|Kazakhstan|Astana|51.17|71.43
+KE|Kenya|Nairobi|-1.29|36.82
+KI|Kiribati|Tarawa|1.45|173.03
+XK|Kosovo|Pristina|42.66|21.17
+KW|Kuwait|Kuwait City|29.38|47.99
+KG|Kyrgyzstan|Bishkek|42.87|74.59
+LA|Laos|Vientiane|17.97|102.63
+LV|Latvia|Riga|56.95|24.11
+LB|Lebanon|Beirut|33.89|35.50
+LS|Lesotho|Maseru|-29.31|27.48
+LR|Liberia|Monrovia|6.30|-10.80
+LY|Libya|Tripoli|32.89|13.19
+LI|Liechtenstein|Vaduz|47.14|9.52
+LT|Lithuania|Vilnius|54.69|25.28
+LU|Luxembourg|Luxembourg|49.61|6.13
+MG|Madagascar|Antananarivo|-18.88|47.51
+MW|Malawi|Lilongwe|-13.96|33.77
+MY|Malaysia|Kuala Lumpur|3.14|101.69
+MV|Maldives|Malé|4.18|73.51
+ML|Mali|Bamako|12.64|-8.00
+MT|Malta|Valletta|35.90|14.51
+MH|Marshall Islands|Majuro|7.09|171.38
+MR|Mauritania|Nouakchott|18.08|-15.98
+MU|Mauritius|Port Louis|-20.16|57.50
+MX|Mexico|Mexico City|19.43|-99.13
+FM|Micronesia|Palikir|6.92|158.16
+MD|Moldova|Chișinău|47.01|28.86
+MC|Monaco|Monaco|43.74|7.42
+MN|Mongolia|Ulaanbaatar|47.89|106.91
+ME|Montenegro|Podgorica|42.44|19.26
+MA|Morocco|Rabat|34.02|-6.84
+MZ|Mozambique|Maputo|-25.97|32.57
+MM|Myanmar|Naypyidaw|19.76|96.08
+NA|Namibia|Windhoek|-22.56|17.08
+NR|Nauru|Yaren|-0.55|166.92
+NP|Nepal|Kathmandu|27.72|85.32
+NL|Netherlands|Amsterdam|52.37|4.90
+NZ|New Zealand|Wellington|-41.29|174.78
+NI|Nicaragua|Managua|12.11|-86.24
+NE|Niger|Niamey|13.51|2.11
+NG|Nigeria|Abuja|9.08|7.40
+KP|North Korea|Pyongyang|39.04|125.76
+MK|North Macedonia|Skopje|42.00|21.43
+NO|Norway|Oslo|59.91|10.75
+OM|Oman|Muscat|23.59|58.41
+PK|Pakistan|Islamabad|33.69|73.06
+PW|Palau|Ngerulmud|7.50|134.62
+PS|Palestine|Ramallah|31.90|35.20
+PA|Panama|Panama City|8.98|-79.52
+PG|Papua New Guinea|Port Moresby|-9.44|147.18
+PY|Paraguay|Asunción|-25.26|-57.58
+PE|Peru|Lima|-12.05|-77.04
+PH|Philippines|Manila|14.60|120.98
+PL|Poland|Warsaw|52.23|21.01
+PT|Portugal|Lisbon|38.72|-9.14
+QA|Qatar|Doha|25.29|51.53
+RO|Romania|Bucharest|44.43|26.10
+RU|Russia|Moscow|55.76|37.62
+RW|Rwanda|Kigali|-1.94|30.06
+KN|Saint Kitts and Nevis|Basseterre|17.30|-62.72
+LC|Saint Lucia|Castries|14.01|-60.99
+VC|Saint Vincent and the Grenadines|Kingstown|13.16|-61.22
+WS|Samoa|Apia|-13.83|-171.76
+SM|San Marino|San Marino|43.94|12.46
+ST|São Tomé and Príncipe|São Tomé|0.34|6.73
+SA|Saudi Arabia|Riyadh|24.71|46.68
+SN|Senegal|Dakar|14.72|-17.47
+RS|Serbia|Belgrade|44.79|20.45
+SC|Seychelles|Victoria|-4.62|55.45
+SL|Sierra Leone|Freetown|8.48|-13.23
+SG|Singapore|Singapore|1.35|103.82
+SK|Slovakia|Bratislava|48.15|17.11
+SI|Slovenia|Ljubljana|46.06|14.51
+SB|Solomon Islands|Honiara|-9.43|159.95
+SO|Somalia|Mogadishu|2.05|45.32
+ZA|South Africa|Pretoria|-25.75|28.19
+KR|South Korea|Seoul|37.57|126.98
+SS|South Sudan|Juba|4.85|31.58
+ES|Spain|Madrid|40.42|-3.70
+LK|Sri Lanka|Colombo|6.93|79.86
+SD|Sudan|Khartoum|15.50|32.56
+SR|Suriname|Paramaribo|5.85|-55.20
+SE|Sweden|Stockholm|59.33|18.07
+CH|Switzerland|Bern|46.95|7.45
+SY|Syria|Damascus|33.51|36.29
+TW|Taiwan|Taipei|25.03|121.57
+TJ|Tajikistan|Dushanbe|38.56|68.77
+TZ|Tanzania|Dodoma|-6.16|35.75
+TH|Thailand|Bangkok|13.76|100.50
+TL|Timor-Leste|Dili|-8.56|125.57
+TG|Togo|Lomé|6.13|1.22
+TO|Tonga|Nuku'alofa|-21.14|-175.20
+TT|Trinidad and Tobago|Port of Spain|10.66|-61.51
+TN|Tunisia|Tunis|36.81|10.18
+TR|Turkey|Ankara|39.93|32.86
+TM|Turkmenistan|Ashgabat|37.96|58.33
+TV|Tuvalu|Funafuti|-8.52|179.20
+UG|Uganda|Kampala|0.35|32.58
+UA|Ukraine|Kyiv|50.45|30.52
+AE|United Arab Emirates|Abu Dhabi|24.45|54.38
+GB|United Kingdom|London|51.51|-0.13
+US|United States|Washington, D.C.|38.91|-77.04
+UY|Uruguay|Montevideo|-34.90|-56.16
+UZ|Uzbekistan|Tashkent|41.30|69.24
+VU|Vanuatu|Port Vila|-17.73|168.32
+VA|Vatican City|Vatican City|41.90|12.45
+VE|Venezuela|Caracas|10.48|-66.90
+VN|Vietnam|Hanoi|21.03|105.85
+YE|Yemen|Sana'a|15.37|44.19
+ZM|Zambia|Lusaka|-15.39|28.28
+ZW|Zimbabwe|Harare|-17.83|31.05`;
+const CL=COUNTRIES.trim().split("\n").map(l=>{const [cc,name,cap,lat,lon]=l.split("|");return{cc,name,cap,lat:+lat,lon:+lon}}).sort((a,b)=>a.name.localeCompare(b.name));
+const BD_RAW={
+Dhaka:"Dhaka,23.81,90.41;Faridpur,23.61,89.84;Gazipur,24.00,90.42;Gopalganj,23.01,89.83;Kishoreganj,24.43,90.78;Madaripur,23.17,90.20;Manikganj,23.86,90.00;Munshiganj,23.55,90.53;Narayanganj,23.63,90.50;Narsingdi,23.92,90.72;Rajbari,23.76,89.64;Shariatpur,23.22,90.35;Tangail,24.25,89.92",
+Chattogram:"Chattogram,22.36,91.78;Bandarban,22.20,92.22;Brahmanbaria,23.96,91.11;Chandpur,23.23,90.65;Cox's Bazar,21.43,92.01;Cumilla,23.46,91.18;Feni,23.02,91.40;Khagrachhari,23.12,91.98;Lakshmipur,22.94,90.84;Noakhali,22.87,91.10;Rangamati,22.65,92.17",
+Rajshahi:"Rajshahi,24.37,88.60;Bogura,24.85,89.37;Chapainawabganj,24.60,88.28;Joypurhat,25.10,89.02;Naogaon,24.80,88.94;Natore,24.42,88.99;Pabna,24.00,89.23;Sirajganj,24.45,89.70",
+Khulna:"Khulna,22.82,89.55;Bagerhat,22.66,89.79;Chuadanga,23.64,88.84;Jashore,23.17,89.21;Jhenaidah,23.54,89.17;Kushtia,23.90,89.12;Magura,23.49,89.42;Meherpur,23.76,88.63;Narail,23.17,89.50;Satkhira,22.72,89.07",
+Barishal:"Barishal,22.70,90.37;Barguna,22.15,90.13;Bhola,22.69,90.65;Jhalokati,22.64,90.20;Patuakhali,22.36,90.33;Pirojpur,22.58,89.97",
+Sylhet:"Sylhet,24.90,91.87;Habiganj,24.38,91.42;Moulvibazar,24.48,91.77;Sunamganj,25.07,91.40",
+Rangpur:"Rangpur,25.75,89.25;Dinajpur,25.63,88.64;Gaibandha,25.33,89.53;Kurigram,25.81,89.65;Lalmonirhat,25.99,89.28;Nilphamari,25.93,88.86;Panchagarh,26.34,88.55;Thakurgaon,26.03,88.46",
+Mymensingh:"Mymensingh,24.75,90.41;Jamalpur,24.92,89.94;Netrokona,24.87,90.73;Sherpur,25.02,90.02"};
+const BD=[];for(const [div,str] of Object.entries(BD_RAW))str.split(";").forEach(s=>{const [n,la,lo]=s.split(",");BD.push({n,div,lat:+la,lon:+lo})});
+const BDBN={};("Dhaka:ঢাকা;Faridpur:ফরিদপুর;Gazipur:গাজীপুর;Gopalganj:গোপালগঞ্জ;Kishoreganj:কিশোরগঞ্জ;Madaripur:মাদারীপুর;Manikganj:মানিকগঞ্জ;Munshiganj:মুন্সিগঞ্জ;Narayanganj:নারায়ণগঞ্জ;Narsingdi:নরসিংদী;Rajbari:রাজবাড়ী;Shariatpur:শরীয়তপুর;Tangail:টাঙ্গাইল;"+
+"Chattogram:চট্টগ্রাম;Bandarban:বান্দরবান;Brahmanbaria:ব্রাহ্মণবাড়িয়া;Chandpur:চাঁদপুর;Cox's Bazar:কক্সবাজার;Cumilla:কুমিল্লা;Feni:ফেনী;Khagrachhari:খাগড়াছড়ি;Lakshmipur:লক্ষ্মীপুর;Noakhali:নোয়াখালী;Rangamati:রাঙ্গামাটি;"+
+"Rajshahi:রাজশাহী;Bogura:বগুড়া;Chapainawabganj:চাঁপাইনবাবগঞ্জ;Joypurhat:জয়পুরহাট;Naogaon:নওগাঁ;Natore:নাটোর;Pabna:পাবনা;Sirajganj:সিরাজগঞ্জ;"+
+"Khulna:খুলনা;Bagerhat:বাগেরহাট;Chuadanga:চুয়াডাঙ্গা;Jashore:যশোর;Jhenaidah:ঝিনাইদহ;Kushtia:কুষ্টিয়া;Magura:মাগুরা;Meherpur:মেহেরপুর;Narail:নড়াইল;Satkhira:সাতক্ষীরা;"+
+"Barishal:বরিশাল;Barguna:বরগুনা;Bhola:ভোলা;Jhalokati:ঝালকাঠি;Patuakhali:পটুয়াখালী;Pirojpur:পিরোজপুর;"+
+"Sylhet:সিলেট;Habiganj:হবিগঞ্জ;Moulvibazar:মৌলভীবাজার;Sunamganj:সুনামগঞ্জ;"+
+"Rangpur:রংপুর;Dinajpur:দিনাজপুর;Gaibandha:গাইবান্ধা;Kurigram:কুড়িগ্রাম;Lalmonirhat:লালমনিরহাট;Nilphamari:নীলফামারী;Panchagarh:পঞ্চগড়;Thakurgaon:ঠাকুরগাঁও;"+
+"Mymensingh:ময়মনসিংহ;Jamalpur:জামালপুর;Netrokona:নেত্রকোণা;Sherpur:শেরপুর").split(";").forEach(s=>{const i=s.indexOf(":");BDBN[s.slice(0,i)]=s.slice(i+1)});
+const bdPlace=d=>({name:d.n,country:"Bangladesh",cc:"BD",lat:d.lat,lon:d.lon});
+const DEFAULT=bdPlace(BD[0]);
+
+/* ---------- state ---------- */
+let S={place:store.get("place",DEFAULT),imp:store.get("imp",false),fx:store.get("fx",true),tab:"w",metric:"t",
+  lang:store.get("lang",(navigator.language||"").toLowerCase().startsWith("bn")?"bn":"en")};
+document.body.classList.toggle("nofx",!S.fx);
+let FAVS=store.get("fav",[]),LAST=null;
+
+/* ---------- language ---------- */
+const BNDIG="০১২৩৪৫৬৭৮৯";
+const I={
+en:{ph:"Search a place",tabW:"Weather",tabBD:"🇧🇩 Districts",more:"More places",pick:"Pick a country (all 190+)",bdq:"Filter districts",
+ sAZ:"Sort: A to Z",sHot:"Hottest first",sCold:"Coldest first",sRain:"Most rain chance",
+ foot:'Weather and air quality by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>, free with no API key. Tap a district to see its full forecast.',
+ hot:"Hottest now",cold:"Coldest now",wet:"Most rain chance today",avg:"Bangladesh average",across:"across 64 districts",
+ bdinfo:(n,t)=>`${n} district${n===1?"":"s"} · Updated ${t} Dhaka time`,none:"No district matches that name.",all:"All",
+ upd:t=>`Updated ${t} local time`,hilo:(h,l,f,d)=>`High ${h}° · Low ${l}° · Feels like ${f}${d}`,
+ cmpW:d=>`Today's high is ${d}° warmer than yesterday`,cmpC:d=>`Today's high is ${d}° cooler than yesterday`,cmpS:"About the same as yesterday",
+ hum:"Humidity",wind:"Wind",pres:"Pressure",uv:"UV index",cloud:"Cloud cover",rain24:"Rain, next 24h",sunrise:"Sunrise",sunset:"Sunset",mrise:"Moonrise",mset:"Moonset",moon:"Moon",daylen:"Day length",
+ dl:(h,m)=>`${h}h ${m}m`,
+ next24:"Next 24 hours",aqh:"Air quality",days7:"7-day forecast",past7:"Last 7 days",pnote:"Daily high, low and rain",psum:(r,h)=>`Total rain ${r} · Average high ${h}°`,
+ today:"Today",yday:"Yesterday",now:"Now",m_t:"Temp",m_r:"Rain",m_w:"Wind",m_h:"Humidity",peak:(v,t)=>`Peak ${v} at ${t}`,
+ aq0:"Good",aq1:"Moderate",aq2:"Unhealthy for sensitive groups",aq3:"Unhealthy",aq4:"Very unhealthy",aq5:"Hazardous",
+ tRain:"Carry an umbrella. Rain is likely in the next 12 hours.",tUv2:"UV is very high today. Use sunscreen and stay in the shade around midday.",tUv1:"UV is high today. Sunglasses and sunscreen are a good idea.",
+ tHot:"It feels very hot. Drink water often and avoid long time in the sun.",tCold:"It feels cold. Wear a warm jacket.",tWind:"Strong wind today. Secure loose items outside.",tAq:"Air quality is poor. Consider a mask outdoors.",tOk:"Conditions look comfortable. Enjoy your day.",
+ rainNow:"It's raining now",rainSoon:p=>`Rain expected in the next hour (${p}% chance)`,rainAt:(t,p)=>`Rain likely around ${t} (${p}% chance)`,stormAt:t=>`Thunderstorm possible around ${t}. Stay indoors.`,stormNow:"Thunderstorm now. Stay indoors.",
+ share:"Share on WhatsApp",refresh:"Refresh",
+ shareMsg:o=>`${o.emoji} ${o.place}\n${o.label}, ${o.temp}${o.deg} (feels like ${o.feels}${o.deg})\nHigh ${o.hi}° · Low ${o.lo}°\n💧 Humidity ${o.hum}% · 💨 Wind ${o.wind} ${o.wu}\n☔ Rain chance, next 12 hours: ${o.rain}%`,
+ err:"Couldn't load live weather. Check your internet, then",retry:"Retry",bderr:"Couldn't load district weather. Check your internet, then",
+ yourloc:"Your location",locNo:"Location isn't supported in this browser.",locBlocked:"Location is blocked. Allow it in your browser settings, or search for a place.",
+ nofound:"No places found. Try another spelling.",capital:"capital",divOf:d=>`${d} division, Bangladesh`,
+ kmh:"km/h",mph:"mph",mm:"mm",inch:"in",save:"Save this place",
+ dirs:["N","NE","E","SE","S","SW","W","NW"],
+ moons:["New moon","Waxing crescent","First quarter","Waxing gibbous","Full moon","Waning gibbous","Last quarter","Waning crescent"],
+ title:(t,d,n)=>`${t}${d} in ${n} · Skyline Weather`},
+bn:{ph:"জায়গা খুঁজুন",tabW:"আবহাওয়া",tabBD:"🇧🇩 জেলা",more:"আরও জায়গা",pick:"দেশ বাছাই করুন (190+)",bdq:"জেলা খুঁজুন",
+ sAZ:"সাজান: বর্ণানুক্রমে",sHot:"সবচেয়ে গরম আগে",sCold:"সবচেয়ে ঠান্ডা আগে",sRain:"বৃষ্টির সম্ভাবনা বেশি আগে",
+ foot:'আবহাওয়া ও বাতাসের মানের তথ্য <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> থেকে, বিনামূল্যে। কোনো জেলায় ট্যাপ করলে পূর্ণ পূর্বাভাস দেখা যাবে।',
+ hot:"এখন সবচেয়ে গরম",cold:"এখন সবচেয়ে ঠান্ডা",wet:"আজ বৃষ্টির সম্ভাবনা সবচেয়ে বেশি",avg:"বাংলাদেশের গড়",across:"64 জেলার গড়",
+ bdinfo:(n,t)=>`${n}টি জেলা · হালনাগাদ ${t}, ঢাকার সময়`,none:"এই নামে কোনো জেলা পাওয়া যায়নি।",all:"সব",
+ upd:t=>`হালনাগাদ ${t} (স্থানীয় সময়)`,hilo:(h,l,f,d)=>`সর্বোচ্চ ${h}° · সর্বনিম্ন ${l}° · অনুভূত ${f}${d}`,
+ cmpW:d=>`আজ গতকালের চেয়ে ${d}° বেশি গরম`,cmpC:d=>`আজ গতকালের চেয়ে ${d}° কম গরম`,cmpS:"গতকালের মতোই",
+ hum:"আর্দ্রতা",wind:"বাতাস",pres:"বায়ুচাপ",uv:"ইউভি সূচক",cloud:"মেঘের পরিমাণ",rain24:"বৃষ্টি, আগামী ২৪ ঘণ্টা",sunrise:"সূর্যোদয়",sunset:"সূর্যাস্ত",mrise:"চাঁদ ওঠা",mset:"চাঁদ ডোবা",moon:"চাঁদ",daylen:"দিনের দৈর্ঘ্য",
+ dl:(h,m)=>`${h} ঘণ্টা ${m} মিনিট`,
+ next24:"আগামী ২৪ ঘণ্টা",aqh:"বাতাসের মান",days7:"৭ দিনের পূর্বাভাস",past7:"গত ৭ দিন",pnote:"প্রতিদিনের সর্বোচ্চ, সর্বনিম্ন ও বৃষ্টি",psum:(r,h)=>`মোট বৃষ্টি ${r} · গড় সর্বোচ্চ ${h}°`,
+ today:"আজ",yday:"গতকাল",now:"এখন",m_t:"তাপমাত্রা",m_r:"বৃষ্টি",m_w:"বাতাস",m_h:"আর্দ্রতা",peak:(v,t)=>`সর্বোচ্চ ${v}, ${t}`,
+ aq0:"ভালো",aq1:"মধ্যম",aq2:"সংবেদনশীলদের জন্য অস্বাস্থ্যকর",aq3:"অস্বাস্থ্যকর",aq4:"খুব অস্বাস্থ্যকর",aq5:"বিপজ্জনক",
+ tRain:"ছাতা সঙ্গে রাখুন। আগামী ১২ ঘণ্টায় বৃষ্টির সম্ভাবনা বেশি।",tUv2:"আজ ইউভি অনেক বেশি। সানস্ক্রিন লাগান এবং দুপুরে ছায়ায় থাকুন।",tUv1:"আজ ইউভি বেশি। সানগ্লাস ও সানস্ক্রিন ব্যবহার করুন।",
+ tHot:"প্রচণ্ড গরম লাগছে। ঘনঘন পানি পান করুন, রোদে বেশিক্ষণ থাকবেন না।",tCold:"ঠান্ডা লাগছে। গরম জামা পরুন।",tWind:"আজ বাতাস প্রবল। বাইরের হালকা জিনিস সামলে রাখুন।",tAq:"বাতাসের মান খারাপ। বাইরে মাস্ক পরার কথা ভাবুন।",tOk:"আবহাওয়া আরামদায়ক। দিনটি উপভোগ করুন।",
+ rainNow:"এখন বৃষ্টি হচ্ছে",rainSoon:p=>`আগামী ১ ঘণ্টার মধ্যে বৃষ্টি হতে পারে (${p}% সম্ভাবনা)`,rainAt:(t,p)=>`${t} নাগাদ বৃষ্টির সম্ভাবনা (${p}%)`,stormAt:t=>`${t} নাগাদ বজ্রঝড়ের সম্ভাবনা। ঘরের ভেতরে থাকুন।`,stormNow:"এখন বজ্রঝড় চলছে। ঘরের ভেতরে থাকুন।",
+ share:"হোয়াটসঅ্যাপে শেয়ার",refresh:"রিফ্রেশ",
+ shareMsg:o=>`${o.emoji} ${o.place}\n${o.label}, ${o.temp}${o.deg} (অনুভূত ${o.feels}${o.deg})\nসর্বোচ্চ ${o.hi}° · সর্বনিম্ন ${o.lo}°\n💧 আর্দ্রতা ${o.hum}% · 💨 বাতাস ${o.wind} ${o.wu}\n☔ আগামী ১২ ঘণ্টায় বৃষ্টির সম্ভাবনা: ${o.rain}%`,
+ err:"লাইভ আবহাওয়া আনা যায়নি। ইন্টারনেট দেখে",retry:"আবার চেষ্টা করুন",bderr:"জেলার আবহাওয়া আনা যায়নি। ইন্টারনেট দেখে",
+ yourloc:"আপনার অবস্থান",locNo:"এই ব্রাউজারে লোকেশন সমর্থিত নয়।",locBlocked:"লোকেশন বন্ধ আছে। ব্রাউজার সেটিংসে অনুমতি দিন, অথবা জায়গার নাম খুঁজুন।",
+ nofound:"কোনো জায়গা পাওয়া যায়নি। অন্যভাবে লিখে দেখুন।",capital:"রাজধানী",divOf:d=>`${d} বিভাগ, বাংলাদেশ`,
+ kmh:"কিমি/ঘণ্টা",mph:"মাইল/ঘণ্টা",mm:"মিমি",inch:"ইঞ্চি",save:"জায়গাটি সংরক্ষণ করুন",
+ dirs:["উ","উ-পূ","পূ","দ-পূ","দ","দ-প","প","উ-প"],
+ moons:["অমাবস্যা","বাড়ন্ত চাঁদ","অর্ধচন্দ্র (বাড়ছে)","প্রায় পূর্ণ (বাড়ছে)","পূর্ণিমা","প্রায় পূর্ণ (কমছে)","অর্ধচন্দ্র (কমছে)","কমন্ত চাঁদ"],
+ title:(t,d,n)=>`${n}-এ ${t}${d} · Skyline`}
+};
+const T=(k,...a)=>{const v=I[S.lang][k]??I.en[k]??k;return typeof v==="function"?v(...a):v};
+const N=x=>S.lang==="bn"?String(x).replace(/[0-9]/g,d=>BNDIG[d]):String(x);
+function digits(root){if(S.lang!=="bn"||!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const v=n.nodeValue;if(/[0-9]/.test(v)&&!(n.parentNode&&n.parentNode.closest&&n.parentNode.closest(".nd")))n.nodeValue=v.replace(/[0-9]/g,d=>BNDIG[d])}}
+const info=c=>{const w=WMO[c]||["Unknown","🌡️","clear","অজানা"];return[S.lang==="bn"?w[3]:w[0],w[1],w[2]]};
+const icon=(c,day=1)=>{const e=info(c)[1];if(day)return e;return e==="☀️"||e==="🌤️"?"🌙":e==="⛅"?"☁️":e};
+const dn=n=>S.lang==="bn"?(BDBN[n]||n):n;
+let DNR=null;
+const regionName=(cc,fb)=>{if(S.lang!=="bn"||!cc)return fb;try{DNR=DNR||new Intl.DisplayNames(["bn"],{type:"region"});return DNR.of(cc)||fb}catch{return fb}};
+const cname=c=>regionName(c.cc,c.name);
+const placeName=p=>p.name==="@loc"||p.name==="Your location"?T("yourloc"):(p.cc==="BD"?dn(p.name):p.name);
+const placeCountry=p=>p.country?regionName(p.cc,p.country):"";
+const loc=()=>S.lang==="bn"?"bn-BD":undefined;
+const t12=(s,m)=>{let h=+s.slice(11,13);const mm=s.slice(14,16);
+  if(S.lang==="bn"){const p=h<4?"রাত":h<6?"ভোর":h<12?"সকাল":h<15?"দুপুর":h<18?"বিকাল":h<20?"সন্ধ্যা":"রাত",hh=h%12||12;return m?`${p} ${hh}:${mm}`:`${p} ${hh}`}
+  const ap=h>=12?"PM":"AM";h=h%12||12;return m?`${h}:${mm} ${ap}`:`${h} ${ap}`};
+const wUnit=()=>S.imp?T("mph"):T("kmh");
+
+/* ---------- living sky (canvas) ---------- */
+const cv=$("fx"),cx=cv.getContext("2d");
+let W=0,H=0,P=[],mode="clear",SC={n:0,spd:1,slant:1.4},flash=0,raf=0,lastT=0,bolt=null,boltT=0,ripples=[],birds=[],shoot=null,nextBird=0;
+const LOW=(navigator.hardwareConcurrency||8)<=4||(navigator.deviceMemory||8)<=4;
+const DPR=Math.min(devicePixelRatio||1,LOW?1:1.5);
+function seed(){
+  ripples=[];birds=[];shoot=null;
+  if(!S.fx){P=[];cx.clearRect(0,0,W,H);return}
+  const f=LOW?.55:1;
+  let n=0;
+  if(mode==="rain"||mode==="storm"||mode==="snow")n=SC.n;
+  else if(mode==="night")n=70;
+  else if(mode==="clear"||mode==="dusk")n=26;
+  n=Math.round(n*f);
+  P=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,v:Math.random(),r:Math.random()}));
+}
+function size(){W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cx.setTransform(DPR,0,0,DPR,0,0);seed();moveInd()}
+function fx(m,cfg){mode=m;SC=Object.assign({n:0,spd:1,slant:1.4},cfg||{});seed();cancelAnimationFrame(raf);raf=0;lastT=0;if(S.fx)raf=requestAnimationFrame(tick);else cx.clearRect(0,0,W,H)}
+function makeBolt(){
+  const pts=[];let x=W*(.15+Math.random()*.7),y=0;const ey=H*(.42+Math.random()*.25);
+  while(y<ey){pts.push([x,y]);x+=(Math.random()-.5)*46;y+=16+Math.random()*26}
+  const bi=Math.min(pts.length-1,2+Math.floor(Math.random()*Math.max(1,pts.length-3)));
+  let bx=pts[bi][0],by=pts[bi][1];const br=[[bx,by]];
+  for(let i=0;i<5;i++){bx+=(Math.random()-.3)*42;by+=14+Math.random()*22;br.push([bx,by])}
+  bolt={pts,br};boltT=0;
+}
+function strokePts(pts,w,col){cx.beginPath();pts.forEach((p,i)=>i?cx.lineTo(p[0],p[1]):cx.moveTo(p[0],p[1]));cx.lineWidth=w;cx.strokeStyle=col;cx.lineJoin="round";cx.stroke()}
+function tick(t){
+  raf=0;
+  if(document.hidden||document.body.classList.contains("ovlock"))return;
+  if(LOW&&t-lastT<32){raf=requestAnimationFrame(tick);return}
+  const dt=lastT?Math.min(2.5,(t-lastT)/16.7):1;lastT=t;
+  cx.clearRect(0,0,W,H);
+  const mv=!RM;
+  if(mode==="rain"||mode==="storm"){
+    const sl=SC.slant;
+    for(let pass=0;pass<2;pass++){
+      cx.strokeStyle=pass?"rgba(220,238,255,.58)":"rgba(190,215,245,.28)";cx.lineWidth=pass?1.5:.9;cx.beginPath();
+      for(const p of P){
+        if((p.v>=.55)!==!!pass)continue;
+        const l=(pass?17:9)+p.v*10;
+        cx.moveTo(p.x,p.y);cx.lineTo(p.x-l*sl*.1,p.y+l);
+        if(mv){p.y+=((pass?15:8)*SC.spd+p.v*4)*dt;p.x-=sl*dt;
+          if(p.y>H){if(pass&&!LOW&&ripples.length<14&&Math.random()<.2)ripples.push({x:p.x,y:H-6-Math.random()*34,r:1,a:.55});p.y=-30;p.x=Math.random()*W+40}}
+      }
+      cx.stroke();
+    }
+    for(let i=ripples.length-1;i>=0;i--){const r=ripples[i];cx.strokeStyle=`rgba(225,240,255,${r.a})`;cx.lineWidth=1;cx.beginPath();cx.ellipse(r.x,r.y,r.r*2.2,r.r*.7,0,0,6.3);cx.stroke();r.r+=.55*dt;r.a-=.02*dt;if(r.a<=0)ripples.splice(i,1)}
+    if(mode==="storm"&&mv){
+      if(!bolt&&Math.random()<.004*dt){makeBolt();flash=1}
+      if(bolt){const a=Math.max(0,1-boltT/14),fl=(boltT<4||(boltT>6&&boltT<8))?1:.45;
+        strokePts(bolt.pts,7,`rgba(170,190,255,${.22*a*fl})`);strokePts(bolt.br,5,`rgba(170,190,255,${.16*a*fl})`);
+        strokePts(bolt.pts,2.2,`rgba(255,255,255,${.95*a*fl})`);strokePts(bolt.br,1.4,`rgba(255,255,255,${.8*a*fl})`);
+        boltT+=dt;if(boltT>14)bolt=null}
+      if(flash>.02){cx.fillStyle=`rgba(235,240,255,${flash*.32})`;cx.fillRect(0,0,W,H);flash*=Math.pow(.86,dt)}
+    }
+  }else if(mode==="snow"){
+    cx.fillStyle="rgba(255,255,255,.92)";cx.beginPath();
+    for(const p of P){const r=1.4+p.r*2.6,x=p.x+Math.sin(t/1200+p.r*9)*14;cx.moveTo(x+r,p.y);cx.arc(x,p.y,r,0,6.3);
+      if(mv){p.y+=(.6+p.v*1.3)*SC.spd*dt;p.x-=.15*dt;if(p.y>H+6){p.y=-6;p.x=Math.random()*W}}}
+    cx.fill();
+  }else if(mode==="night"){
+    for(const p of P){cx.fillStyle=`rgba(255,255,255,${.25+.75*Math.abs(Math.sin(t/1100+p.r*12))})`;cx.fillRect(p.x,p.y*.7,1+p.r*1.6,1+p.r*1.6)}
+    if(mv){
+      if(!shoot&&Math.random()<.0022*dt)shoot={x:W*(.1+Math.random()*.7),y:H*Math.random()*.28,l:0};
+      if(shoot){const vx=11,vy=4.5,x=shoot.x+vx*shoot.l,y=shoot.y+vy*shoot.l,a=Math.max(0,1-shoot.l/28);
+        const g=cx.createLinearGradient(x,y,x-vx*9,y-vy*9);g.addColorStop(0,`rgba(255,255,255,${a})`);g.addColorStop(1,"rgba(255,255,255,0)");
+        cx.strokeStyle=g;cx.lineWidth=2;cx.beginPath();cx.moveTo(x,y);cx.lineTo(x-vx*9,y-vy*9);cx.stroke();shoot.l+=dt;if(shoot.l>28)shoot=null}
+    }
+  }else if(mode==="clear"||mode==="dusk"){
+    const warm=mode==="dusk";
+    for(const p of P){const a=.22+.25*Math.sin(t/1600+p.r*20),r=1.1+p.r*1.8;
+      cx.fillStyle=warm?`rgba(255,222,170,${a})`:`rgba(255,255,255,${a})`;cx.beginPath();cx.arc(p.x+Math.sin(t/2400+p.r*9)*10,p.y,r,0,6.3);cx.fill();
+      if(mv){p.y-=(.12+p.v*.3)*dt;p.x+=.1*dt;if(p.y<-8){p.y=H+8;p.x=Math.random()*W}if(p.x>W+8)p.x=-8}}
+    if(mv){
+      if(t>nextBird){birds.push({x:-30,y:H*(.1+Math.random()*.22),s:.9+Math.random()*.8,ph:Math.random()*6,n:3+Math.floor(Math.random()*3)});nextBird=t+14000+Math.random()*16000}
+      cx.strokeStyle=warm?"rgba(70,30,60,.6)":"rgba(40,70,100,.5)";cx.lineWidth=1.6;cx.lineCap="round";cx.beginPath();
+      for(let i=birds.length-1;i>=0;i--){const b=birds[i];
+        for(let k=0;k<b.n;k++){const bx=b.x-k*22,by=b.y+k*9*(k%2?1:-1)*.6,f=Math.sin(t/110+b.ph+k)*3.2;
+          cx.moveTo(bx-6,by-f);cx.quadraticCurveTo(bx-2,by-3,bx,by);cx.quadraticCurveTo(bx+2,by-3,bx+6,by-f)}
+        b.x+=b.s*.9*dt;if(b.x-b.n*22>W+20)birds.splice(i,1)}
+      cx.stroke();
+    }
+  }
+  if(mv&&!document.hidden&&(P.length||bolt||ripples.length||birds.length))raf=requestAnimationFrame(tick);
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){lastT=0;if(!raf&&S.fx)raf=requestAnimationFrame(tick);if(S.tab==="w"&&LAST&&Date.now()-lastLoad>6e5)load(true)}});
+const BAR={clear:"#5aaef2",night:"#070e24",cloud:"#8fa3b5",rain:"#36495b",storm:"#1c2238",snow:"#a9c2da",fog:"#a3acb3",dusk:"#3d3b7a"};
+const BARN={rain:"#1b2733",storm:"#10131f",snow:"#27344a",fog:"#262d3a"};
+function scene(code){
+  const sky=info(code)[2];
+  if(sky==="storm")return{n:150,spd:1.25};
+  if(sky==="rain"){const heavy=[65,66,67,82].includes(code),mid=[63,81,55,57].includes(code);return{n:heavy?140:mid?95:55,spd:heavy?1.2:mid?1:.8}}
+  if(sky==="snow"){const heavy=[75,86].includes(code),mid=[73,85].includes(code);return{n:heavy?130:mid?85:50,spd:1}}
+  return{n:0,spd:1};
+}
+function setSky(code,c,golden,hot,windKmh,cover){
+  const sky=info(code)[2];
+  let k=sky;
+  if(golden)k="dusk";else if(!c.is_day&&(sky==="clear"||sky==="cloud"))k="night";
+  document.body.dataset.sky=k;
+  const dark=!c.is_day&&!!BARN[k];document.body.classList.toggle("isnight",dark);
+  const col=(dark?BARN[k]:BAR[k])||BAR.clear,m=document.querySelector('meta[name="theme-color"]');
+  if(m)m.setAttribute("content",col);
+  document.documentElement.style.background=col;
+  document.body.classList.toggle("hot",!!hot&&(k==="clear"));
+  const st=document.body.style;
+  st.setProperty("--cd",Math.max(26,120-windKmh*2.2).toFixed(0)+"s");
+  st.setProperty("--co",(.3+cover/100*.7).toFixed(2));
+  st.setProperty("--vsw",Math.max(1.5,6-windKmh/9).toFixed(1)+"s");st.setProperty("--vsa",Math.min(7,1.5+windKmh/8).toFixed(1));
+  const cfg=scene(code);cfg.slant=1+Math.min(3,windKmh/14);
+  fx(k,cfg);
+}
+
+
+/* ---------- village scene (background) ---------- */
+function rngf(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function buildVillage(){
+  const el=$("vill");if(!el)return;
+  const hpx=Math.round(Math.max(170,Math.min(280,innerHeight*.26)));
+  if(+el.dataset.w===innerWidth&&Math.abs(+el.dataset.h-hpx)<28)return;
+  el.dataset.w=innerWidth;el.dataset.h=hpx;el.style.height=hpx+"px";
+  const sc=hpx/300,VW=Math.ceil(innerWidth/sc)+2,R=rngf(11),r=(a,b)=>a+R()*(b-a),GY=222,RV=250,RD=GY+17;
+  const f1=n=>n.toFixed(1),yr=x=>RD+Math.sin(x/80)*3,dl=()=>`--vd:-${(R()*3).toFixed(1)}s`;
+  const palm=h=>{const tx=h*.12;let f="";[[-30,8],[-22,-5],[-8,-13],[8,-13],[22,-5],[30,8]].forEach(([dx,dy],i)=>{
+      const cy=Math.min(dy,0)-12,ey=dy+8;f+=`<path class="${i%2?"vlf2":"vlf"}" d="M0,0 Q${dx*.5},${cy} ${dx},${ey} Q${dx*.5},${cy+6} 0,3Z"/>`});
+    return `<path class="vtks" d="M0,0 Q${f1(tx*.2)},${f1(-h*.5)} ${f1(tx)},${f1(-h)}"/><g transform="translate(${f1(tx)} ${f1(-h)})">${f}</g>`};
+  const round=h=>`<rect class="vtk" x="-2.5" y="${-h}" width="5" height="${h}"/><circle class="vlf" cx="0" cy="${-h-12}" r="15"/><circle class="vlf" cx="-12" cy="${-h-5}" r="11"/><circle class="vlf" cx="12" cy="${-h-5}" r="11"/><circle class="vlf2" cx="-4" cy="${-h-17}" r="8"/><circle class="vlf2" cx="8" cy="${-h-11}" r="6"/>`;
+  const banana=()=>`<rect class="vtk" x="-2" y="-14" width="4" height="14"/>`+[-165,-130,-90,-50,-15].map((a,i)=>`<ellipse class="${i%2?"vlf2":"vlf"}" rx="14" ry="4.2" transform="translate(0 -14) rotate(${a}) translate(14 0)"/>`).join("");
+  const bamboo=h=>{let o="";for(let i=0;i<4;i++){const x=(i-1.5)*5,hh=h*(.8+(i%2)*.3),ln=(i-1.5)*3;
+      o+=`<path class="vbam" d="M${x},0 Q${f1(x+ln*.3)},${f1(-hh*.5)} ${f1(x+ln)},${f1(-hh)}"/><ellipse class="vlf" cx="${f1(x+ln+4)}" cy="${f1(-hh+4)}" rx="7" ry="2.2" transform="rotate(-25 ${f1(x+ln+4)} ${f1(-hh+4)})"/><ellipse class="vlf" cx="${f1(x+ln-4)}" cy="${f1(-hh+10)}" rx="7" ry="2.2" transform="rotate(25 ${f1(x+ln-4)} ${f1(-hh+10)})"/>`}return o};
+  const kash=()=>{let o="";for(let i=0;i<3;i++){const x=(i-1)*4,h=18+(i%2)*6;o+=`<path class="vksp" d="M${x},0 Q${x+(i-1)*3},${f1(-h*.6)} ${x+(i-1)*5},${-h}"/><ellipse class="vks" cx="${x+(i-1)*5}" cy="${-h-3}" rx="2" ry="5"/>`}return o};
+  const scare=()=>`<rect class="vtk" x="-1" y="-22" width="2" height="22"/><rect class="vtk" x="-9" y="-17" width="18" height="2"/><rect class="vrf" x="-3" y="-20" width="6" height="8"/><circle class="vwl" cx="0" cy="-24" r="3.5"/><path class="vrf2" d="M-5,-26.5 L5,-26.5 L0,-33Z"/>`;
+  const hut=(rf2,smoke,lamp)=>{
+    let o=`<ellipse class="vpool" cx="21.5" cy="3" rx="28" ry="6"/><rect class="vwl" x="0" y="-24" width="44" height="24"/><path class="${rf2?"vrf2":"vrf"}" d="M-7,-23 L22,-46 L51,-23Z"/><rect class="vdr" x="17" y="-15" width="9" height="15"/><rect class="vdg" x="17" y="-15" width="9" height="15"/>`+
+      [9,35].map(wx=>`<rect class="vwn" x="${wx-4}" y="-19" width="8" height="8"/><path class="vwx" d="M${wx},-19 v8 M${wx-4},-15 h8"/><circle class="vhalo" cx="${wx}" cy="-15" r="15" style="${dl()}"/>`).join("");
+    if(lamp)o+=`<rect class="vtk" x="-16" y="-26" width="1.6" height="26"/><circle class="vhalo" cx="-15.2" cy="-27" r="12" style="${dl()}"/><circle class="vlamp" cx="-15.2" cy="-27" r="2"/>`;
+    if(smoke){o+=`<rect class="vdr" x="36" y="-47" width="5" height="12"/>`;for(let i=0;i<3;i++)o+=`<circle class="vsm" cx="38.5" cy="-49" r="3" style="--vd:${(i*1.8).toFixed(1)}s"/>`}return o};
+  const lantern=(x,y)=>`<rect class="vtk" x="${x-.5}" y="${y-4}" width="1" height="6"/><circle class="vhalo" cx="${x}" cy="${y-5}" r="11" style="${dl()}"/><circle class="vlamp" cx="${x}" cy="${y-5}" r="1.8"/>`;
+  const boat=sail=>`<g class="vbob"><path class="vbt" d="M-30,-7 Q-26,5 0,6 Q26,5 34,-9 Q2,-3 -30,-7Z"/>`+(sail?`<rect class="vtk" x="1" y="-40" width="2" height="34"/><path class="vsl" d="M3,-39 Q26,-26 31,-9 L3,-9Z"/>`:`<path class="vbs" d="M-12,-7 Q0,-26 16,-8Z"/>`)+lantern(-25,-8)+`</g>`;
+  const rick=`<g class="vbob"><circle class="vwhl" cx="-9" cy="-4" r="4"/><circle class="vwhl" cx="12" cy="-4" r="4"/><rect class="vtk" x="-14" y="-9" width="22" height="2"/><path class="vbs" d="M-12,-9 Q-4,-24 6,-10Z"/><rect class="vrf" x="-12" y="-9" width="14" height="3"/><circle class="vtk" cx="14" cy="-15" r="2.4"/><rect class="vtk" x="12.8" y="-13" width="2.4" height="7"/></g>`;
+  const tree=(x,y,s,inner,cls)=>`<g transform="translate(${f1(x)} ${y}) scale(${s.toFixed(2)})"${cls?` class="${cls}"`:""}><g class="vtr" style="--vd:-${(R()*6).toFixed(1)}s">${inner}</g></g>`;
+  const still=(x,y,s,inner,cls)=>`<g transform="translate(${f1(x)} ${y}) scale(${s.toFixed(2)})"${cls?` class="${cls}"`:""}>${inner}</g>`;
+  const fs=Math.round(VW*.58);
+  let o=`<svg viewBox="0 0 ${VW} 300" width="100%" height="100%" preserveAspectRatio="xMinYMax meet" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="vrg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="vrs1"/><stop offset="1" class="vrs2"/></linearGradient><radialGradient id="vhg"><stop offset="0" stop-color="#ffd27a" stop-opacity=".85"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient></defs>`;
+  let d=`M0,300 L0,170`;for(let x=0;x<=VW+40;x+=40)d+=` L${x},${f1(160+Math.sin(x/130)*14+Math.sin(x/47+1)*6)}`;o+=`<path class="vh1" d="${d} L${VW+40},300Z"/>`;
+  d=`M0,300 L0,190`;for(let x=0;x<=VW+40;x+=30)d+=` L${x},${f1(188+Math.sin(x/90+2)*10+Math.sin(x/33)*4)}`;o+=`<path class="vh2" d="${d} L${VW+40},300Z"/>`;
+  // back row (village side only) + a few palms and a small hut behind the field
+  for(let x=r(-10,20);x<fs-6;x+=r(32,66)){const k=R();
+    if(k<.5)o+=tree(x,GY-2,r(.55,.8),round(r(10,16)),"vbk");else if(k<.78)o+=tree(x,GY-2,r(.55,.8),palm(r(34,50)),"vbk");else if(k<.9)o+=tree(x,GY-2,r(.6,.8),bamboo(r(30,42)),"vbk");else o+=still(x,GY-2,.55,hut(R()<.5,false,false),"vbk")}
+  for(let x=fs+r(10,40);x<VW-30;x+=r(90,170))o+=tree(x,GY-12,r(.6,.8),R()<.7?palm(r(36,52)):round(r(10,15)),"vbk");
+  o+=still(VW-r(70,110),GY-12,.62,hut(R()<.5,true,false),"vbk");
+  // ground
+  d=`M0,300 L0,${GY}`;for(let x=0;x<=VW+50;x+=50)d+=` L${x},${f1(GY-2+Math.sin(x/70)*3)}`;o+=`<path class="vg1" d="${d} L${VW+50},300Z"/>`;
+  // paddy field on the right side
+  {let x=fs,i=0;while(x<VW+20){const w=r(62,96),y0=GY-12,y1=GY+11,sk=7;
+    o+=`<path class="${i%2?"vfd2":"vfd1"}" d="M${f1(x)},${y0} L${f1(x+w)},${y0} L${f1(x+w-sk)},${y1} L${f1(x-sk)},${y1}Z"/>`;
+    let rows="";for(let k=0;k<4;k++){const yy=y0+4+k*5.5,off=sk*(yy-y0)/(y1-y0);rows+=`<path class="vcr" d="M${f1(x-off+3)},${f1(yy)} L${f1(x+w-off-3)},${f1(yy)}"/>`}o+=`<g class="vcg" style="${dl()}">${rows}</g>`;
+    x+=w+4;i++}
+   o+=tree(fs+(VW-fs)*r(.4,.55),GY+8,1,scare())}
+  // village side: a little paddy strip below the houses is replaced by the road
+  d=`M0,${f1(yr(0))}`;for(let x=30;x<=VW+30;x+=30)d+=` L${x},${f1(yr(x))}`;o+=`<path class="vrd" d="${d}"/>`;
+  // front row (houses and trees) - collect door paths first
+  let front="",steps="";
+  for(let x=r(8,30);x<fs-22;){const k=R(),y=GY+5+Math.round(r(-1,2));
+    if(k<.3){const s=r(.9,1.2),cx=x+21.5*s;steps+=`<rect class="vrdf" x="${f1(cx-3.5*s)}" y="${y-1}" width="${f1(7*s)}" height="${f1(yr(cx)-y+2)}"/>`;front+=still(x,y,s,hut(R()<.35,R()<.5,R()<.3));x+=58*s+r(30,70)}
+    else if(k<.52){front+=tree(x,y,r(.9,1.25),palm(r(48,70)));x+=r(34,60)}
+    else if(k<.74){front+=tree(x,y,r(.9,1.3),round(r(12,20)));x+=r(40,64)}
+    else if(k<.88){front+=tree(x,y,r(.9,1.15),banana());x+=r(28,44)}
+    else{front+=tree(x,y,r(.9,1.15),bamboo(r(36,50)));x+=r(32,48)}}
+  o+=steps+front;
+  // rickshaw on the road
+  o+=`<g transform="translate(0 ${RD+1})"><g class="vbx" style="--vbw:${VW};animation-duration:${Math.round(VW/6)+40}s;animation-delay:-${Math.round(R()*80)}s"><g transform="scale(.75)">${rick}</g></g></g>`;
+  // fireflies
+  o+=`<g class="vfg">`;for(let i=0;i<(LOW?8:14);i++)o+=`<circle class="vff" cx="${f1(r(10,VW-10))}" cy="${f1(r(190,246))}" r="1.7" style="--vd:-${(R()*4).toFixed(1)}s"/>`;o+=`</g>`;
+  // river
+  d=`M0,300 L0,${RV}`;for(let x=0;x<=VW+30;x+=30)d+=` L${x},${f1(RV+Math.sin(x/55)*2.2)}`;o+=`<path fill="url(#vrg)" d="${d} L${VW+30},300Z"/>`;
+  const nw=Math.round(VW/(LOW?170:100));
+  for(let i=0;i<nw;i++){const y=r(RV+8,296),s=.8+(y-RV)/50*.8;o+=`<g transform="translate(${f1(r(0,VW))} ${f1(y)}) scale(${s.toFixed(2)})"><path class="vwv" style="--vd:-${(R()*4).toFixed(1)}s;animation-duration:${r(3,6).toFixed(1)}s" d="M0,0 q6,-3 12,0 t12,0"/></g>`}
+  o+=`<g class="vrg">`;for(let i=0;i<(LOW?4:8);i++)o+=`<ellipse class="vrp" cx="${f1(r(10,VW-10))}" cy="${f1(r(RV+8,294))}" rx="12" ry="3" style="--vd:-${(R()*2.2).toFixed(1)}s"/>`;o+=`</g>`;
+  // moon reflection (night)
+  {const mx=(innerWidth-(innerWidth<=520?.02:.09)*innerWidth-42)/sc;o+=`<g class="vmg">`;for(let i=0;i<6;i++)o+=`<ellipse class="vmr" cx="${f1(mx)}" cy="${RV+8+i*7}" rx="${f1(17-i*2)}" ry="1.4" style="--vd:-${(i*.5).toFixed(1)}s"/>`;o+=`</g>`}
+  // boats
+  o+=`<g transform="translate(0 266)"><g class="vbx" style="--vbw:${VW};animation-duration:${Math.round(VW/9)+40}s;animation-delay:-${Math.round(R()*60)}s"><g transform="scale(1 1)">${boat(false)}</g></g></g>`;
+  o+=`<g transform="translate(0 285)"><g class="vbx rev" style="--vbw:${VW};animation-duration:${Math.round(VW/6)+60}s;animation-delay:-${Math.round(R()*90)}s"><g transform="scale(-1.3 1.3)">${boat(true)}</g></g></g>`;
+  for(let x=r(0,30);x<VW;x+=r(55,120))o+=tree(x,RV+2,r(.8,1.2),kash());
+  o+=`</svg>`;
+  el.innerHTML=o;vpUpdate();
+}
+/* scene slides up only when the page is scrolled near the bottom */
+let vpQ=0,vpLast=-1,vpOff=0,vpSc=0;
+function vpUpdate(){const el=$("vill");if(!el)return;
+  const dist=document.documentElement.scrollHeight-(scrollY+innerHeight),reach=Math.max(120,(+el.dataset.h||200)*1.1);
+  const v=Math.max(0,Math.min(1,dist/reach));
+  if(v>=.999){if(!vpOff&&!el.classList.contains("off"))vpOff=setTimeout(()=>{vpOff=0;el.classList.add("off")},500)}
+  else{if(vpOff){clearTimeout(vpOff);vpOff=0}if(el.classList.contains("off")){el.classList.remove("off");void el.offsetWidth}}
+  if(Math.abs(v-vpLast)>.004){vpLast=v;el.style.setProperty("--vpi",v.toFixed(3))}}
+const vpReq=()=>{if(vpQ)return;vpQ=requestAnimationFrame(()=>{vpQ=0;vpUpdate()})};
+addEventListener("scroll",()=>{const el=$("vill");if(el){el.classList.add("sc");clearTimeout(vpSc);vpSc=setTimeout(()=>el.classList.remove("sc"),160)}vpReq()},{passive:true});
+if(window.ResizeObserver)new ResizeObserver(vpReq).observe(document.body);
+/* ---------- helpers ---------- */
+const AQ=a=>a<=50?[T("aq0"),"#2e9e57"]:a<=100?[T("aq1"),"#b58d00"]:a<=150?[T("aq2"),"#e07b00"]:a<=200?[T("aq3"),"#d63b3b"]:a<=300?[T("aq4"),"#8e3fb0"]:[T("aq5"),"#7a1f3a"];
+const MOONE=["🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘"];
+function moonPhase(){const p=(((Date.now()/864e5)-10962.76)/29.530588853)%1,ph=p<0?p+1:p,i=Math.round(ph*8)%8;return{e:MOONE[i],n:T("moons")[i],pct:Math.round((1-Math.cos(ph*2*Math.PI))/2*100)}}
+const RAD=Math.PI/180;
+function moonAlt(ms,lat,lon){
+  const d=ms/864e5-0.5+2440588-2451545;
+  const L=RAD*(218.316+13.176396*d),M=RAD*(134.963+13.064993*d),F=RAD*(93.272+13.22935*d);
+  const l=L+RAD*6.289*Math.sin(M),b=RAD*5.128*Math.sin(F),e=RAD*23.4397;
+  const ra=Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e),Math.cos(l)),dec=Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+  const Hh=RAD*(280.16+360.9856235*d+lon)-ra,phi=RAD*lat;
+  return Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(Hh));
+}
+function moonTimes(dateStr,offSec,lat,lon){
+  const [y,m,d]=dateStr.split("-").map(Number),t0=Date.UTC(y,m-1,d)-offSec*1000,hc=.133*RAD;
+  let rise=null,set=null,prev=moonAlt(t0,lat,lon)-hc;
+  for(let i=1;i<=144;i++){const t=t0+i*6e5,cur=moonAlt(t,lat,lon)-hc;
+    if(prev<0&&cur>=0&&rise===null)rise=t-6e5+6e5*(-prev)/(cur-prev);
+    if(prev>0&&cur<=0&&set===null)set=t-6e5+6e5*prev/(prev-cur);
+    prev=cur}
+  const f=ms=>ms===null?null:new Date(ms+offSec*1000).toISOString().slice(0,16);
+  return{rise:f(rise),set:f(set)};
+}
+function chart(vals,kind,times){
+  const Wd=480,Ht=140,top=26,bot=24,n=vals.length;
+  const mn=kind==="bar"?0:Math.min(...vals),mx=kind==="bar"?Math.max(30,Math.ceil(Math.max(...vals)/10)*10):Math.max(...vals),r=(mx-mn)||1;
+  const y=v=>top+(1-(v-mn)/r)*(Ht-top-bot);
+  const unit=kind==="bar"?"%":"";
+  let body="",lab="";
+  if(kind==="bar"){
+    const bw=Wd/n;
+    vals.forEach((v,i)=>{const h=Math.max(2,(Ht-top-bot)*v/mx),x=i*bw+bw*.19;
+      body+=`<rect x="${x.toFixed(1)}" y="${(Ht-bot-h).toFixed(1)}" width="${(bw*.62).toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="var(--accent)" opacity="${(.4+Math.min(v,100)/170).toFixed(2)}"/>`;
+      if(i%4===0||i===n-1)lab+=`<text class="vl" x="${(i*bw+bw/2).toFixed(1)}" y="${(Ht-bot-h-5).toFixed(1)}" text-anchor="${i===0?"start":i===n-1?"end":"middle"}">${Math.round(v)}%</text>`});
+    for(let i=0;i<n;i+=4)lab+=`<text class="ax" x="${(i*bw+bw/2).toFixed(1)}" y="${Ht-6}" text-anchor="${i===0?"start":"middle"}">${i?t12(times[i]):T("now")}</text>`;
+    return `<svg viewBox="0 0 ${Wd} ${Ht}" role="img">${body}${lab}</svg>`;
+  }
+  const pts=vals.map((v,i)=>[i*Wd/(n-1),y(v)]);
+  let d="M"+pts[0];for(let i=1;i<pts.length;i++){const m=[(pts[i-1][0]+pts[i][0])/2,(pts[i-1][1]+pts[i][1])/2];d+=` Q${pts[i-1]} ${m}`}
+  d+=` L${pts.at(-1)}`;
+  pts.forEach((p,i)=>{if(i%4===0||i===n-1){const a=i===0?"start":i===n-1?"end":"middle";
+    lab+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--accent)"/><text class="vl" x="${p[0]}" y="${p[1]-10}" text-anchor="${a}">${Math.round(vals[i])}${unit==="%"?"%":""}</text>`}});
+  for(let i=0;i<n;i+=4)lab+=`<text class="ax" x="${i*Wd/(n-1)}" y="${Ht-6}" text-anchor="${i===0?"start":"middle"}">${i?t12(times[i]):T("now")}</text>`;
+  return `<svg viewBox="0 0 ${Wd} ${Ht}" role="img"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+  <path d="${d} L${Wd},${Ht-bot} L0,${Ht-bot} Z" fill="url(#cg)"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>${lab}</svg>`;
+}
+const hourStart=w=>Math.max(0,w.hourly.time.findIndex(t=>t>=w.current.time.slice(0,13)+":00"));
+function drawChart(){
+  if(!LAST||!$("cbox"))return;
+  const w=LAST.w,st=hourStart(w),H=w.hourly,sl=a=>a.slice(st,st+24),m=S.metric,times=sl(H.time);
+  let vals,kind="line",unit;
+  if(m==="r"){vals=sl(H.precipitation_probability).map(x=>x??0);kind="bar";unit="%"}
+  else if(m==="w"){vals=sl(H.wind_speed_10m).map(x=>x??0);unit=" "+wUnit()}
+  else if(m==="h"){vals=sl(H.relative_humidity_2m).map(x=>x??0);unit="%"}
+  else{vals=sl(H.temperature_2m);unit="°"}
+  const mi=vals.indexOf(Math.max(...vals));
+  $("cbox").innerHTML=chart(vals,kind,times)+`<div class="sub cpeak">${T("peak",Math.round(vals[mi])+unit,mi?t12(times[mi]):T("now"))}</div>`;
+  $$("#seg button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+  digits($("cbox"));
+}
+let prevT=null;
+function countUp(el,from,to){if(RM||from===null||from===to){el.textContent=N(to);return}const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/700),e=1-Math.pow(1-k,3);el.textContent=N(Math.round(from+(to-from)*e));if(k<1)requestAnimationFrame(f)})(t0)}
+const same=(a,b)=>Math.abs(a.lat-b.lat)<.01&&Math.abs(a.lon-b.lon)<.01;
+const mins=s=>+s.slice(11,13)*60+ +s.slice(14,16);
+
+function alertFor(w,c,start){
+  const h=w.hourly;
+  if(c.weather_code>=95)return{cls:"storm",ic:"⛈️",txt:T("stormNow")};
+  for(let i=1;i<=3;i++){const k=start+i;if(k<h.time.length&&h.weather_code[k]>=95)return{cls:"storm",ic:"⛈️",txt:T("stormAt",t12(h.time[k]))}}
+  if((c.precipitation||0)>0.05||RAINY.includes(c.weather_code))return{cls:"now",ic:"🌧️",txt:T("rainNow")};
+  for(let i=1;i<=6;i++){const k=start+i;if(k>=h.time.length)break;
+    const p=h.precipitation_probability[k]??0,mm=h.precipitation[k]??0;
+    if(p>=55||mm>=0.3)return{cls:"soon",ic:"☔",txt:i===1?T("rainSoon",p):T("rainAt",t12(h.time[k]),p)}}
+  return null;
+}
+
+/* ---------- weather ---------- */
+let first=true,token=0,ac=null,lastLoad=0;
+const cacheKey=()=>S.place.lat.toFixed(2)+","+S.place.lon.toFixed(2)+","+(S.imp?1:0);
+async function load(silent){
+  const p=S.place,im=S.imp,id=++token;
+  if(first){$("sk").hidden=false;$("out").hidden=true;$("msg").hidden=true}else if(!silent)$("out").classList.add("busy");
+  if(ac)ac.abort();ac=new AbortController();const sg={signal:ac.signal};
+  const u="&temperature_unit="+(im?"fahrenheit":"celsius")+"&wind_speed_unit="+(im?"mph":"kmh")+"&precipitation_unit="+(im?"inch":"mm");
+  const ll="latitude="+p.lat+"&longitude="+p.lon;
+  const wu="https://api.open-meteo.com/v1/forecast?"+ll+
+   "&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,cloud_cover"+
+   "&hourly=temperature_2m,weather_code,precipitation_probability,precipitation,is_day,wind_speed_10m,relative_humidity_2m"+
+   "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max"+
+   "&timezone=auto&forecast_days=7"+u;
+  const au="https://air-quality-api.open-meteo.com/v1/air-quality?"+ll+"&current=us_aqi,pm2_5,pm10&timezone=auto";
+  const pu="https://api.open-meteo.com/v1/forecast?"+ll+"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&past_days=7&forecast_days=1&timezone=auto"+u;
+  try{
+    const [wr,ar,pr]=await Promise.allSettled([fetch(wu,sg),fetch(au,sg),fetch(pu,sg)]);
+    if(wr.status!=="fulfilled"||!wr.value.ok)throw 0;
+    const w=await wr.value.json();let aq=null,past=null;
+    if(ar.status==="fulfilled"&&ar.value.ok)try{aq=(await ar.value.json()).current}catch{}
+    if(pr.status==="fulfilled"&&pr.value.ok)try{past=(await pr.value.json()).daily}catch{}
+    if(id!==token)return;
+    LAST={k:cacheKey(),w,aq,past};lastLoad=Date.now();
+    store.set("wc",{...LAST,t:lastLoad});
+    render(w,aq,past);
+  }catch(e){
+    if(id!==token||(e&&e.name==="AbortError"))return;
+    $("sk").hidden=true;$("out").classList.remove("busy");
+    if(first&&!LAST)$("out").hidden=true;
+    $("msg").hidden=false;
+    $("msg").innerHTML=esc(T("err"))+` <button class="btn" id="retry">${esc(T("retry"))}</button>`;
+    $("retry").onclick=()=>load();
+  }
+}
+
+function shareText(){
+  if(!LAST)return"";
+  const w=LAST.w,c=w.current,dl=w.daily,st=hourStart(w),im=S.imp;
+  const rain=Math.max(0,...w.hourly.precipitation_probability.slice(st,st+12).map(x=>x||0));
+  const o={place:placeName(S.place)+(S.place.country?", "+placeCountry(S.place):""),emoji:info(c.weather_code)[1],label:info(c.weather_code)[0],
+    temp:Math.round(c.temperature_2m),deg:im?"°F":"°C",feels:Math.round(c.apparent_temperature),hi:Math.round(dl.temperature_2m_max[0]),lo:Math.round(dl.temperature_2m_min[0]),
+    hum:c.relative_humidity_2m,wind:Math.round(c.wind_speed_10m),wu:wUnit(),rain};
+  let body=T("shareMsg",o);if(S.lang==="bn")body=N(body);
+  return body+"\n\nSkyline Weather";
+}
+
+function render(w,aq,past){
+  const p=S.place,c=w.current,im=S.imp,deg=im?"°F":"°C",dl=w.daily,code=c.weather_code;
+  const [label,,sky]=info(code);
+  const start=hourStart(w),H24=w.hourly.time.slice(start,start+24);
+  const sl=a=>a.slice(start,start+24);
+  const rain24=sl(w.hourly.precipitation).reduce((a,b)=>a+(b||0),0);
+  const uv=Math.round(dl.uv_index_max[0]);
+  const isFav=FAVS.some(f=>same(f,p));
+  const tc=im?(c.apparent_temperature-32)*5/9:c.apparent_temperature,wk=im?c.wind_speed_10m*1.609:c.wind_speed_10m;
+  const rainMax=Math.max(0,...sl(w.hourly.precipitation_probability).slice(0,12).map(x=>x||0));
+  const nm=mins(c.time),srm=mins(dl.sunrise[0]),ssm=mins(dl.sunset[0]);
+  const golden=Math.min(Math.abs(nm-srm),Math.abs(nm-ssm))<=45&&(sky==="clear"||code===2);
+  setSky(code,c,golden,tc>=36&&c.is_day,wk,c.cloud_cover);
+  const tips=[];
+  if(rainMax>=50)tips.push(["☂️",T("tRain")]);
+  if(uv>=8)tips.push(["🧴",T("tUv2")]);else if(uv>=6)tips.push(["🕶️",T("tUv1")]);
+  if(tc>=36)tips.push(["💧",T("tHot")]);else if(tc<=10)tips.push(["🧥",T("tCold")]);
+  if(wk>=40)tips.push(["💨",T("tWind")]);
+  if(aq&&aq.us_aqi>150)tips.push(["😷",T("tAq")]);
+  if(!tips.length)tips.push(["😊",T("tOk")]);
+  const aqL=aq?AQ(aq.us_aqi):null;
+  /* past days */
+  let pastRows=[],cmp="";
+  if(past&&past.time){
+    const today=c.time.slice(0,10),idx=past.time.map((t,i)=>i).filter(i=>past.time[i]<today).slice(-7).reverse();
+    pastRows=idx.map(i=>({d:past.time[i],hi:past.temperature_2m_max[i],lo:past.temperature_2m_min[i],r:past.precipitation_sum[i]||0,c:past.weather_code[i]})).filter(r=>r.hi!=null&&r.lo!=null);
+    if(pastRows.length){const df=Math.round(dl.temperature_2m_max[0]-pastRows[0].hi);cmp=Math.abs(df)<1?T("cmpS"):df>0?T("cmpW",df):T("cmpC",-df)}
+  }
+  const allLo=[...dl.temperature_2m_min,...pastRows.map(r=>r.lo)],allHi=[...dl.temperature_2m_max,...pastRows.map(r=>r.hi)];
+  const lo=Math.min(...allLo),hi=Math.max(...allHi),span=hi-lo||1;
+  const track=(a,b)=>`<div class="track"><i style="left:${(a-lo)/span*100}%;width:${Math.max(6,(b-a)/span*100)}%"></i></div>`;
+  const dayName=d=>new Date(d+"T12:00").toLocaleDateString(loc(),{weekday:"short",day:"numeric"});
+  const moon=moonPhase(),dlen=ssm-srm,mt=moonTimes(c.time.slice(0,10),w.utc_offset_seconds||0,p.lat,p.lon);
+  const stats=[[T("hum"),c.relative_humidity_2m+"%"],
+    [T("wind"),`<span style="display:inline-block;transform:rotate(${c.wind_direction_10m+180}deg)">↑</span> ${Math.round(c.wind_speed_10m)} ${wUnit()} ${T("dirs")[Math.round(c.wind_direction_10m/45)%8]}`],
+    [T("pres"),Math.round(c.pressure_msl)+" hPa"],[T("uv"),uv],[T("cloud"),c.cloud_cover+"%"],
+    [T("rain24"),rain24.toFixed(im?2:1)+" "+(im?T("inch"):T("mm"))],[T("sunrise"),t12(dl.sunrise[0],1)],[T("sunset"),t12(dl.sunset[0],1)],
+    [T("mrise"),mt.rise?t12(mt.rise,1):"–"],[T("mset"),mt.set?t12(mt.set,1):"–"],
+    [moon.e+" "+moon.pct+"%",T("moon")+" · "+moon.n],[T("daylen"),T("dl",Math.floor(dlen/60),dlen%60)]];
+  const al=alertFor(w,c,start);
+  const pastTotal=pastRows.reduce((a,r)=>a+r.r,0),pastAvg=pastRows.length?Math.round(pastRows.reduce((a,r)=>a+r.hi,0)/pastRows.length):0;
+  const ru=im?T("inch"):T("mm"),fm=v=>v<.05?"0":v.toFixed(im?2:1);
+  const o=$("out");
+  parkTabs();
+  o.innerHTML=`
+  <div class="hero">
+    <div class="place"><span>${flag(p.cc)} ${esc(placeName(p))}${p.country?", "+esc(placeCountry(p)):""}</span><button id="fav" class="icon ${isFav?"on":""}" aria-label="${esc(T("save"))}" title="${esc(T("save"))}">${isFav?"★":"☆"}</button></div>
+    <div class="temp"><span id="tn">${N(Math.round(c.temperature_2m))}</span><sup>${deg}</sup></div>
+    <div class="cond"><span class="em">${icon(code,c.is_day)}</span>${esc(label)}</div>
+    <div class="sub">${T("hilo",Math.round(dl.temperature_2m_max[0]),Math.round(dl.temperature_2m_min[0]),Math.round(c.apparent_temperature),deg)}</div>
+    ${cmp?`<div class="sub">${cmp}</div>`:""}
+    <div class="sub">${T("upd",t12(c.time,1))}</div>
+    <div class="actions"><button id="wa" class="pill wa">💬 ${esc(T("share"))}</button><button id="rf" class="pill">⟳ ${esc(T("refresh"))}</button></div>
+  </div>
+  ${al?`<div class="alert ${al.cls}" role="alert"><span class="ai">${al.ic}</span><span>${esc(al.txt)}</span></div>`:""}
+  <div class="grid">${stats.map(s=>`<div class="stat glass"><b>${s[1]}</b><span>${s[0]}</span></div>`).join("")}</div>
+  <div class="tips glass">${tips.map(t=>`<div class="tip"><span>${t[0]}</span><div>${t[1]}</div></div>`).join("")}</div>
+  <div id="tabslot"></div>
+  <h2>${T("next24")}</h2>
+  <div class="seg" id="seg">${["t","r","w","h"].map(m=>`<button data-m="${m}" class="${m===S.metric?"on":""}">${T("m_"+m)}</button>`).join("")}</div>
+  <div class="curve glass" id="cbox"></div>
+  <div class="hours">${H24.map((t,i)=>{const k=start+i;return `<div class="h glass"><div>${i?t12(t):T("now")}</div><div>${icon(w.hourly.weather_code[k],w.hourly.is_day[k])}</div><div>${Math.round(w.hourly.temperature_2m[k])}°</div><small>${w.hourly.precipitation_probability[k]??0}%</small></div>`}).join("")}</div>
+  ${aq?`<h2>${T("aqh")}</h2><div class="aq glass"><div class="aqn" style="color:${aqL[1]}">${Math.round(aq.us_aqi)}</div><div><b>${aqL[0]}</b><div class="sub">PM2.5 ${Math.round(aq.pm2_5)} · PM10 ${Math.round(aq.pm10)} µg/m³</div><div class="meter"><i style="left:${Math.min(aq.us_aqi,300)/3}%"></i></div></div></div>`:""}
+  <h2>${T("days7")}</h2>
+  <div class="days glass">${dl.time.map((d,i)=>{const n=i?dayName(d):T("today"),a=dl.temperature_2m_min[i],b=dl.temperature_2m_max[i];
+    return `<div class="d"><div>${n}</div><div>${icon(dl.weather_code[i])}</div><div class="rain">${dl.precipitation_probability_max[i]??0}%</div><div class="lo">${Math.round(a)}°</div>${track(a,b)}<div class="hi">${Math.round(b)}°</div></div>`}).join("")}</div>
+  ${pastRows.length?`<h2>${T("past7")}</h2><div class="sub pnote">${T("pnote")} (${ru}) · ${T("psum",pastTotal.toFixed(im?2:1)+" "+ru,pastAvg)}</div>
+  <div class="days glass">${pastRows.map((r,i)=>`<div class="d"><div>${i?dayName(r.d):T("yday")}</div><div>${icon(r.c)}</div><div class="rain mm">${fm(r.r)}</div><div class="lo">${Math.round(r.lo)}°</div>${track(r.lo,r.hi)}<div class="hi">${Math.round(r.hi)}°</div></div>`).join("")}</div>`:""}`;
+  placeTabs(true);
+  drawChart();
+  const nt=Math.round(c.temperature_2m);
+  digits(o);countUp($("tn"),prevT,nt);prevT=nt;
+  $("sk").hidden=true;$("msg").hidden=true;o.hidden=false;o.classList.remove("busy");
+  if(first){first=false;[...o.children].forEach((ch,i)=>ch.style.setProperty("--n",i));o.classList.add("intro");setTimeout(()=>o.classList.remove("intro"),1800)}
+  document.title=N(T("title",nt,deg,placeName(p)));
+  try{geoSync()}catch{}
+}
+
+/* ---------- Bangladesh board ---------- */
+let BDD=null,bdDiv="All",bdSort="az",bdQ="";
+async function loadBD(force){
+  if(!force&&BDD&&BDD.imp===S.imp&&Date.now()-BDD.t<6e5){drawBD();return}
+  $("bdgrid").innerHTML=Array.from({length:12},(_,i)=>`<div class="sk s" style="--n:${i}"></div>`).join("");
+  const la=BD.map(d=>d.lat).join(","),lo=BD.map(d=>d.lon).join(",");
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FDhaka&forecast_days=1&temperature_unit=${S.imp?"fahrenheit":"celsius"}`;
+  try{
+    const r=await fetch(url);if(!r.ok)throw 0;
+    const j=await r.json(),arr=Array.isArray(j)?j:[j];
+    BDD={t:Date.now(),imp:S.imp,time:arr[0].current.time,rows:BD.map((d,i)=>({...d,i,t:arr[i].current.temperature_2m,code:arr[i].current.weather_code,day:arr[i].current.is_day,hi:arr[i].daily.temperature_2m_max[0],lo:arr[i].daily.temperature_2m_min[0],rain:arr[i].daily.precipitation_probability_max[0]??0}))};
+    drawBD();
+  }catch{
+    $("bdgrid").innerHTML=`<p id="msg2">${esc(T("bderr"))} <button class="btn" id="bdretry">${esc(T("retry"))}</button></p>`;
+    $("bdretry").onclick=()=>loadBD(true);
+  }
+}
+function drawBD(){
+  const R=BDD.rows,deg=S.imp?"°F":"°C";
+  const hot=[...R].sort((a,b)=>b.t-a.t)[0],cold=[...R].sort((a,b)=>a.t-b.t)[0],wet=[...R].sort((a,b)=>b.rain-a.rain)[0];
+  const avg=R.reduce((a,b)=>a+b.t,0)/R.length;
+  $("bdsum").innerHTML=[[T("hot"),dn(hot.n),Math.round(hot.t)+deg,hot],[T("cold"),dn(cold.n),Math.round(cold.t)+deg,cold],[T("wet"),dn(wet.n),wet.rain+"%",wet],[T("avg"),Math.round(avg)+deg,T("across"),null]]
+    .map(s=>`<button class="sm glass" ${s[3]?`data-i="${s[3].i}"`:"disabled"}><span>${s[0]}</span><b>${esc(s[1])}</b> <span style="display:inline">${esc(s[2])}</span></button>`).join("");
+  let L=R.filter(d=>(bdDiv==="All"||d.div===bdDiv)&&(d.n.toLowerCase().includes(bdQ)||dn(d.n).includes(bdQ)));
+  const lc=S.lang==="bn"?"bn":"en";
+  L.sort(bdSort==="hot"?(a,b)=>b.t-a.t:bdSort==="cold"?(a,b)=>a.t-b.t:bdSort==="rain"?(a,b)=>b.rain-a.rain||b.t-a.t:(a,b)=>dn(a.n).localeCompare(dn(b.n),lc));
+  $("bdinfo").textContent=T("bdinfo",L.length,t12(BDD.time,1));
+  $("bdgrid").innerHTML=L.length?L.map(d=>`<button class="dc glass" data-i="${d.i}"><b>${esc(dn(d.n))}</b><small>${esc(dn(d.div))}</small><div class="big"><span>${icon(d.code,d.day)}</span><span>${Math.round(d.t)}°</span></div><small>H ${Math.round(d.hi)}° L ${Math.round(d.lo)}° · 💧 ${d.rain}%</small></button>`).join(""):`<p class="sub">${esc(T("none"))}</p>`;
+  digits($("bdsum"));digits($("bdinfo"));digits($("bdgrid"));
+}
+const markDiv=()=>$$("#bddiv .chip").forEach(x=>x.style.borderColor=x.dataset.d===bdDiv?"var(--accent)":"");
+function divChips(){$("bddiv").innerHTML=["All",...Object.keys(BD_RAW)].map(d=>`<button class="chip" data-d="${d}">${esc(d==="All"?T("all"):dn(d))}</button>`).join("");markDiv()}
+$("bddiv").onclick=e=>{const b=e.target.closest("[data-d]");if(!b)return;bdDiv=b.dataset.d;markDiv();if(BDD)drawBD()};
+let bdT;$("bdq").oninput=e=>{clearTimeout(bdT);const v=e.target.value.trim().toLowerCase();bdT=setTimeout(()=>{bdQ=v;if(BDD)drawBD()},140)};
+$("bdsort").onchange=e=>{bdSort=e.target.value;if(BDD)drawBD()};
+const openDistrict=e=>{const b=e.target.closest("[data-i]");if(b&&!b.disabled)pick(bdPlace(BD[+b.dataset.i]))};
+$("bdgrid").onclick=openDistrict;$("bdsum").onclick=openDistrict;
+
+/* ---------- navigation, search, saved ---------- */
+/* tab bar sits above "Next 24 hours" on Weather, at the top on Districts */
+function parkTabs(){const n=document.querySelector(".tabs"),h=$("tabhost");if(n&&h&&n.parentNode!==h)h.appendChild(n)}
+function placeTabs(force){const n=document.querySelector(".tabs"),sl=$("tabslot"),h=$("tabhost");if(!n||!h)return;
+  const tgt=(S.tab==="w"&&sl&&(force||!$("out").hidden))?sl:h;if(n.parentNode!==tgt)tgt.appendChild(n);moveInd()}
+function moveInd(){const b=document.querySelector(".tabs button.on"),i=$("ind");if(b){i.style.width=b.offsetWidth+"px";i.style.transform=`translateX(${b.offsetLeft}px)`}}
+function show(t){S.tab=t;$("tw").hidden=t!=="w";$("tbd").hidden=t!=="bd";
+  $$(".tabs button").forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle("on",on);b.setAttribute("aria-selected",on)});
+  placeTabs();scrollTo({top:0,behavior:RM?"auto":"smooth"});if(t==="bd")loadBD()}
+$$(".tabs button").forEach(b=>b.onclick=()=>show(b.dataset.tab));
+const hideSugg=()=>$("sugg").style.display="none";
+function pick(p){S.place=p;store.set("place",p);$("q").value="";hideSugg();$("cs").value="";show("w");load()}
+const pickC=c=>pick({name:c.cap,country:c.name,cc:c.cc,lat:c.lat,lon:c.lon});
+
+function chips(){
+  const sv=FAVS.map((f,i)=>`<button class="chip" data-f="${i}">★ ${esc(placeName(f))}</button>`).join("");
+  const bd=["Dhaka","Chattogram","Sylhet","Rajshahi","Khulna","Barishal","Rangpur","Mymensingh"].map(n=>`<button class="chip" data-b="${n}">🇧🇩 ${esc(dn(n))}</button>`).join("");
+  $("chips").innerHTML=(sv?`<div class="row">${sv}</div>`:"")+`<div class="row">${bd}</div>`;
+}
+$("chips").onclick=e=>{const f=e.target.closest("[data-f]"),b=e.target.closest("[data-b]");
+  if(f)pick(FAVS[+f.dataset.f]);else if(b)pick(bdPlace(BD.find(d=>d.n===b.dataset.b)))};
+$("out").addEventListener("click",e=>{
+  const m=e.target.closest("[data-m]");
+  if(m){S.metric=m.dataset.m;drawChart();return}
+  if(e.target.closest("#wa")){const t=shareText();if(t)window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank","noopener");return}
+  if(e.target.closest("#rf")){load();return}
+  if(!e.target.closest("#fav"))return;
+  const i=FAVS.findIndex(f=>same(f,S.place));if(i>=0)FAVS.splice(i,1);else FAVS.unshift({...S.place});
+  FAVS=FAVS.slice(0,8);store.set("fav",FAVS);chips();
+  const on=FAVS.some(f=>same(f,S.place)),b=$("fav");b.textContent=on?"★":"☆";b.classList.toggle("on",on)});
+
+let timer,sAbort;
+$("q").addEventListener("input",e=>{
+  clearTimeout(timer);const v=e.target.value.trim(),lv=v.toLowerCase();
+  if(v.length<2){hideSugg();return}
+  const dm=BD.filter(d=>d.n.toLowerCase().includes(lv)||dn(d.n).includes(v)).slice(0,3),
+        cm=CL.filter(c=>c.name.toLowerCase().includes(lv)||cname(c).toLowerCase().includes(lv)).slice(0,3);
+  const draw=res=>{
+    const h=dm.map((d,i)=>`<button data-d="${i}">🇧🇩 ${esc(dn(d.n))} <small>${esc(T("divOf",dn(d.div)))}</small></button>`).join("")+
+      cm.map((c,i)=>`<button data-c="${i}">${flag(c.cc)} ${esc(cname(c))} <small>${esc(T("capital"))}: ${esc(c.cap)}</small></button>`).join("")+
+      res.map((x,i)=>`<button data-i="${i}">${flag(x.country_code)} ${esc(x.name)} <small>${esc([x.admin1,x.country].filter(Boolean).join(", "))}</small></button>`).join("");
+    $("sugg").innerHTML=h||`<button disabled>${esc(T("nofound"))}</button>`;$("sugg").style.display="block";
+    $$("button[data-d]",$("sugg")).forEach(b=>b.onclick=()=>pick(bdPlace(dm[b.dataset.d])));
+    $$("button[data-c]",$("sugg")).forEach(b=>b.onclick=()=>pickC(cm[b.dataset.c]));
+    $$("button[data-i]",$("sugg")).forEach(b=>b.onclick=()=>{const x=res[b.dataset.i];pick({name:x.name,country:x.country||"",cc:x.country_code,lat:x.latitude,lon:x.longitude})});
+    digits($("sugg"));
+  };
+  if(dm.length||cm.length)draw([]);
+  timer=setTimeout(async()=>{
+    if(sAbort)sAbort.abort();sAbort=new AbortController();
+    try{const r=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=8&language="+S.lang+"&format=json&name="+encodeURIComponent(v),{signal:sAbort.signal});
+      draw(((await r.json()).results||[]).filter(x=>x.country_code!=="IL"&&x.country!=="Israel"))}
+    catch(err){if(err&&err.name==="AbortError")return;if(!dm.length&&!cm.length)draw([])}
+  },250);
+});
+$("q").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){const b=$("sugg").querySelector("button:not([disabled])");if(b)b.click()}
+  if(e.key==="Escape")hideSugg();
+  if(e.key==="ArrowDown"){const b=$("sugg").querySelector("button");if(b){e.preventDefault();b.focus()}}});
+$("sugg").addEventListener("keydown",e=>{const b=$$("button",$("sugg")),i=b.indexOf(document.activeElement);
+  if(e.key==="ArrowDown"&&b[i+1]){e.preventDefault();b[i+1].focus()}
+  if(e.key==="ArrowUp"){e.preventDefault();(b[i-1]||$("q")).focus()}});
+document.addEventListener("click",e=>{if(!e.target.closest(".search"))hideSugg()});
+document.addEventListener("keydown",e=>{if(e.key==="/"&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$("q").focus()}});
+
+$("loc").onclick=()=>{
+  const m=t=>{show("w");$("sk").hidden=true;$("msg").hidden=false;$("msg").textContent=t};
+  if(!navigator.geolocation)return m(T("locNo"));
+  navigator.geolocation.getCurrentPosition(pos=>pick({name:"@loc",country:"",cc:"",lat:pos.coords.latitude,lon:pos.coords.longitude}),
+    ()=>m(T("locBlocked")),{timeout:10000});
+};
+$("unit").onclick=()=>{S.imp=!S.imp;store.set("imp",S.imp);$("unit").textContent=S.imp?"°F":"°C";prevT=null;BDD=null;LAST=null;S.tab==="bd"?loadBD():load()};
+$("unit").textContent=S.imp?"°F":"°C";
+$("fxb").onclick=()=>{S.fx=!S.fx;store.set("fx",S.fx);document.body.classList.toggle("nofx",!S.fx);fx(mode,SC)};
+
+function buildCS(){
+  const lc=S.lang==="bn"?"bn":"en",ord=CL.map((_,i)=>i).sort((a,b)=>cname(CL[a]).localeCompare(cname(CL[b]),lc));
+  $("cs").innerHTML=`<option value="">${esc(T("pick"))}</option>`+ord.map(i=>`<option value="${i}">${flag(CL[i].cc)} ${esc(cname(CL[i]))}</option>`).join("");
+  digits($("cs"));
+}
+$("cs").onchange=e=>{if(e.target.value!=="")pickC(CL[e.target.value])};
+function applyLang(){
+  document.documentElement.lang=S.lang;
+  if(S.lang==="bn"&&!$("bnfont")){const l=document.createElement("link");l.id="bnfont";l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;600;700&display=swap";document.head.appendChild(l)}
+  $$("[data-i]").forEach(e=>e.textContent=T(e.dataset.i));
+  $$("[data-ph]").forEach(e=>e.placeholder=T(e.dataset.ph));
+  $("foot").innerHTML=T("foot");
+  $("lang").textContent=S.lang==="bn"?"EN":"বাং";
+  buildCS();divChips();chips();geoLang();
+  if(LAST)render(LAST.w,LAST.aq,LAST.past);
+  if(BDD&&S.tab==="bd")drawBD();
+  moveInd();
+}
+$("lang").onclick=()=>{S.lang=S.lang==="bn"?"en":"bn";store.set("lang",S.lang);prevT=null;applyLang()};
+
+let rzT;addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>{size();buildVillage()},150)});
+if(document.fonts)document.fonts.ready.then(moveInd);
+setInterval(()=>{if(!document.hidden&&S.tab==="w"&&!first)load(true)},6e5);
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+/* ---------- rain radar + earthquakes (free, no API key) ---------- */
+Object.assign(I.en,{
+ gRadT:"Rain radar",gEqT:"Earthquakes",gBack:"Back",gRadSub:"Live map, last 2 hours",gEqSub:"Recent quakes near you",gTzNone:"No M2.5+ quakes within 1000 km in 30 days",gTzLatest:(m,d,a)=>`Latest: M${m} · ${d} away · ${a}`,
+ gPlay:"Play",gPause:"Pause",gCenter:"Center on place",gLatest:"Latest",
+ gMin:n=>`${n} min ago`,gHr:n=>`${n} h ago`,gDay:n=>`${n} d ago`,
+ gRadNote:'Live rain radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> (last 2 hours, free, no API key). Colored areas show rain. Blank means no rain, or no radar coverage there. Map © OpenStreetMap contributors.',
+ gRadErr:"Couldn't load the radar right now.",gNoLib:"The map library couldn't load. Check your internet.",
+ gEqNear:"Near this place",gEqD:"World · 24h (M2.5+)",gEqW:"World · 7 days (M4.5+)",
+ gCount:"Earthquakes",gStrong:"Strongest",gNearest:"Nearest",
+ gNone:"No earthquakes found for this view.",gNoneNear:"No earthquakes of M2.5+ within 1000 km in the last 30 days.",
+ gEqErr:"Couldn't load earthquake data. Check your internet, then",
+ gEqNote:'Earthquake data from <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a>, free with no API key. "Near this place" shows M2.5+ within 1000 km over the last 30 days.',
+ gMore:"Show more",gKm:"km",gMi:"mi",gDepth:"Depth",gTsu:"Tsunami alert",gFrom:"away",
+ gInfoNear:p=>`Within 1000 km of ${p} · last 30 days · M2.5+`,gUsgs:"Details on USGS"
+});
+Object.assign(I.bn,{
+ gRadT:"বৃষ্টির রাডার",gEqT:"ভূমিকম্প",gBack:"পিছনে",gRadSub:"লাইভ ম্যাপ, গত ২ ঘণ্টা",gEqSub:"আপনার কাছের সাম্প্রতিক ভূমিকম্প",gTzNone:"30 দিনে 1000 কিমির মধ্যে M2.5+ ভূমিকম্প নেই",gTzLatest:(m,d,a)=>`সর্বশেষ: M${m} · ${d} দূরে · ${a}`,
+ gPlay:"চালান",gPause:"থামান",gCenter:"জায়গাটি কেন্দ্রে আনুন",gLatest:"সর্বশেষ",
+ gMin:n=>`${n} মিনিট আগে`,gHr:n=>`${n} ঘণ্টা আগে`,gDay:n=>`${n} দিন আগে`,
+ gRadNote:'লাইভ বৃষ্টির রাডার <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> থেকে (গত 2 ঘণ্টা, বিনামূল্যে, কোনো API key লাগে না)। রঙিন অংশে বৃষ্টি হচ্ছে। ফাঁকা মানে বৃষ্টি নেই, অথবা সেখানে রাডার কভারেজ নেই। ম্যাপ © OpenStreetMap contributors।',
+ gRadErr:"রাডার এখন আনা যায়নি।",gNoLib:"ম্যাপ লাইব্রেরি লোড হয়নি। ইন্টারনেট দেখুন।",
+ gEqNear:"এই জায়গার কাছে",gEqD:"বিশ্ব · ২৪ ঘণ্টা (M2.5+)",gEqW:"বিশ্ব · ৭ দিন (M4.5+)",
+ gCount:"ভূমিকম্প",gStrong:"সবচেয়ে শক্তিশালী",gNearest:"সবচেয়ে কাছের",
+ gNone:"এই ভিউতে কোনো ভূমিকম্প পাওয়া যায়নি।",gNoneNear:"গত 30 দিনে 1000 কিমির মধ্যে M2.5+ কোনো ভূমিকম্প পাওয়া যায়নি।",
+ gEqErr:"ভূমিকম্পের তথ্য আনা যায়নি। ইন্টারনেট দেখে",
+ gEqNote:'ভূমিকম্পের তথ্য <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a> থেকে, বিনামূল্যে, API key ছাড়া। "এই জায়গার কাছে" মোডে গত 30 দিনে 1000 কিমির মধ্যে M2.5+ ভূমিকম্প দেখায়।',
+ gMore:"আরও দেখান",gKm:"কিমি",gMi:"মাইল",gDepth:"গভীরতা",gTsu:"সুনামি সতর্কতা",gFrom:"দূরে",
+ gInfoNear:p=>`${p}-এর 1000 কিমির মধ্যে · গত 30 দিন · M2.5+`,gUsgs:"USGS-এ বিস্তারিত"
+});
+
+const mapsOK=()=>typeof L!=="undefined";
+let leafP=null;
+function loadLeaflet(){
+  if(mapsOK())return Promise.resolve();
+  if(leafP)return leafP;
+  const base="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+  leafP=Promise.all([
+    new Promise((ok,no)=>{const l=document.createElement("link");l.rel="stylesheet";l.href=base+"leaflet.css";l.onload=ok;l.onerror=no;document.head.appendChild(l)}),
+    new Promise((ok,no)=>{const c=document.createElement("script");c.src=base+"leaflet.min.js";c.onload=ok;c.onerror=no;document.head.appendChild(c)})
+  ]).catch(e=>{leafP=null;throw e});
+  return leafP;
+}
+const pk=p=>p.lat.toFixed(2)+","+p.lon.toFixed(2);
+const hav=(a,b,c,d)=>{const r=Math.PI/180,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 12742*Math.asin(Math.sqrt(x))};
+const gdist=k=>S.imp?N(Math.round(k*.621371))+" "+T("gMi"):N(Math.round(k))+" "+T("gKm");
+const ago=t=>{const m=Math.max(1,Math.round((Date.now()-t)/6e4));return m<60?T("gMin",N(m)):m<1440?T("gHr",N(Math.round(m/60))):T("gDay",N(Math.round(m/1440)))};
+const mc=m=>m<3?"#2e9e57":m<4?"#b58d00":m<5?"#e07b00":m<6?"#d63b3b":m<7?"#8e3fb0":"#7a1f3a";
+function gmsg(id,html){const e=$(id);if(!html){e.hidden=true;return}e.innerHTML=html;e.hidden=false}
+function whenSeen(el,fn){
+  if(!("IntersectionObserver" in window)){fn();return}
+  const io=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting)){io.disconnect();fn()}},{rootMargin:"300px"});
+  io.observe(el);
+}
+
+/* base map: OpenStreetMap (no key); dark look at night via CSS */
+const BASEU="https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const BATTR='© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+const darkSky=()=>document.body.classList.contains("isnight")||document.body.dataset.sky==="night";
+function applyBase(m){
+  if(!m)return;
+  if(!m._bl)m._bl=L.tileLayer(BASEU,{maxZoom:19,attribution:BATTR,zIndex:1,className:"basetile"}).addTo(m);
+  m.getContainer().classList.toggle("dk",darkSky());
+}
+
+/* ===== rain radar (RainViewer, no key) ===== */
+const RD={map:null,pm:null,frames:[],layers:{},idx:-1,host:"",playing:false,tm:0,gen:0,key:"",at:0};
+const rtime=i=>{const f=RD.frames[i];if(!f)return"";
+  const hm=new Date(f.time*1000).toLocaleTimeString(loc(),{hour:"2-digit",minute:"2-digit"});
+  return N(hm)+" · "+(i===RD.frames.length-1?T("gLatest"):T("gMin",N(Math.max(1,Math.round((Date.now()-f.time*1000)/6e4)))))};
+const ICO_PLAY=`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>`,ICO_PAUSE=`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>`;
+const setPlayBtn=()=>{const b=$("rplay");b.innerHTML=RD.playing?ICO_PAUSE:ICO_PLAY;b.setAttribute("aria-label",T(RD.playing?"gPause":"gPlay"))};
+function radarInit(){
+  if(RD.map)return;
+  if(!mapsOK()){gmsg("radmsg",esc(T("gNoLib")));return}
+  const p=S.place,m=RD.map=L.map("radmap",{center:[p.lat,p.lon],zoom:6,minZoom:3,maxZoom:9,worldCopyJump:true});
+  m.attributionControl.setPrefix(false);
+  m.attributionControl.addAttribution('Radar © <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>');
+  applyBase(m);
+  RD.pm=L.circleMarker([p.lat,p.lon],{radius:7,color:"#fff",weight:2.5,fillColor:"#e63946",fillOpacity:1,interactive:false}).addTo(m);
+  RD.key=pk(p);
+  m.on("movestart zoomstart",radarPause);
+  if(window.ResizeObserver)new ResizeObserver(()=>m.invalidateSize()).observe($("radmap"));
+  radarLoad();
+}
+async function radarLoad(){
+  const id=++RD.gen;
+  try{
+    const r=await fetch("https://api.rainviewer.com/public/weather-maps.json",{cache:"no-store"});
+    if(!r.ok)throw 0;
+    const j=await r.json(),past=(j.radar&&j.radar.past)||[];
+    if(!past.length||!j.host)throw 0;
+    if(id!==RD.gen||!RD.map)return;
+    radarPause();
+    for(const k in RD.layers)RD.map.removeLayer(RD.layers[k]);
+    RD.layers={};RD.host=j.host;RD.frames=past;RD.at=Date.now();
+    $("rrng").max=past.length-1;gmsg("radmsg","");
+    radarShow(past.length-1);
+  }catch{
+    if(id!==RD.gen||RD.frames.length)return;
+    gmsg("radmsg",esc(T("gRadErr"))+` <button class="btn" id="radretry" type="button">${esc(T("retry"))}</button>`);
+    $("radretry").onclick=()=>{gmsg("radmsg","");radarLoad()};
+  }
+}
+function rlayer(i){
+  if(!RD.layers[i]){const f=RD.frames[i];
+    RD.layers[i]=L.tileLayer(`${RD.host}${f.path}/512/{z}/{x}/{y}/2/1_1.png`,{tileSize:512,zoomOffset:-1,maxNativeZoom:8,opacity:0,zIndex:5,keepBuffer:1,updateWhenIdle:true})}
+  return RD.layers[i];
+}
+function radarShow(i){
+  if(!RD.map||!RD.frames.length)return;
+  i=Math.max(0,Math.min(RD.frames.length-1,i));RD.idx=i;
+  const ly=rlayer(i);if(!RD.map.hasLayer(ly))ly.addTo(RD.map);ly.setOpacity(.8);
+  for(const k in RD.layers){if(+k===i)continue;const o=RD.layers[k];
+    if(RD.playing)o.setOpacity(0);else if(RD.map.hasLayer(o))RD.map.removeLayer(o)}
+  $("rrng").value=i;$("rrng").style.setProperty("--p",(RD.frames.length>1?i/(RD.frames.length-1)*100:100)+"%");$("rtime").textContent=rtime(i);
+}
+function radarStep(){
+  if(!RD.playing)return;
+  const n=RD.frames.length,nx=(RD.idx+1)%n;
+  radarShow(nx);RD.tm=setTimeout(radarStep,nx===n-1?1500:600);
+}
+async function radarPlay(){
+  if(RD.playing||!RD.map||RD.frames.length<2)return;
+  RD.playing=true;setPlayBtn();
+  /* load every frame once (about 6 tiles each), then loop; stays well inside the free rate limit */
+  const ls=RD.frames.map((_,i)=>{const l=rlayer(i);if(!RD.map.hasLayer(l)){l.setOpacity(0);l.addTo(RD.map)}return l});
+  await Promise.race([Promise.all(ls.map(l=>new Promise(r=>{if(!l._loading)r();else l.once("load",r)}))),new Promise(r=>setTimeout(r,5000))]);
+  if(!RD.playing)return;
+  radarShow(0);RD.tm=setTimeout(radarStep,600);
+}
+function radarPause(){
+  if(!RD.playing)return;
+  RD.playing=false;clearTimeout(RD.tm);setPlayBtn();
+  if(RD.map)for(const k in RD.layers){if(+k!==RD.idx&&RD.map.hasLayer(RD.layers[k]))RD.map.removeLayer(RD.layers[k])}
+}
+function radarSync(){
+  if(!RD.map)return;const p=S.place,k=pk(p);
+  if(k===RD.key)return;
+  RD.key=k;radarPause();RD.pm.setLatLng([p.lat,p.lon]);RD.map.setView([p.lat,p.lon],6,{animate:false});
+}
+$("rplay").onclick=()=>RD.playing?radarPause():radarPlay();
+$("rrng").oninput=e=>{radarPause();radarShow(+e.target.value)};
+$("rctr").onclick=()=>{if(RD.map){const p=S.place;RD.map.setView([p.lat,p.lon],6)}};
+
+/* ===== earthquakes (USGS, no key) ===== */
+const EQ={mode:store.get("eqm","near"),map:null,layer:null,pm:null,mk:[],rows:[],shown:25,cache:{},ac:null,gen:0,pkey:"",started:false,loaded:false,fit:true};
+if(!["near","d","w"].includes(EQ.mode))EQ.mode="near";
+const FEED="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/";
+function eqUrl(mode=EQ.mode){
+  if(mode==="near"){const p=S.place,s=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+    return `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${p.lat.toFixed(3)}&longitude=${p.lon.toFixed(3)}&maxradiuskm=1000&minmagnitude=2.5&orderby=time&limit=300&starttime=${s}`}
+  return FEED+(mode==="d"?"2.5_day.geojson":"4.5_week.geojson");
+}
+const eqParse=j=>(j.features||[]).filter(f=>f.properties&&f.properties.mag!=null&&f.geometry).map(f=>({m:f.properties.mag,pl:f.properties.place||"",t:f.properties.time,u:f.properties.url,ts:f.properties.tsunami===1,lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1],dp:f.geometry.coordinates[2]||0})).sort((a,b)=>b.t-a.t);
+function eqMapInit(){
+  if(EQ.map)return;
+  if(!mapsOK()){gmsg("eqmsg",esc(T("gNoLib")));return}
+  const p=S.place,m=EQ.map=L.map("eqmap",{center:[p.lat,p.lon],zoom:4,minZoom:2,maxZoom:10,worldCopyJump:true,preferCanvas:true});
+  m.attributionControl.setPrefix(false);
+  m.attributionControl.addAttribution('Quakes: <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a>');
+  applyBase(m);
+  EQ.layer=L.layerGroup().addTo(m);
+  EQ.pm=L.circleMarker([p.lat,p.lon],{radius:6,color:"#fff",weight:2.5,fillColor:"#1b84e6",fillOpacity:1,interactive:false}).addTo(m);
+  if(window.ResizeObserver)new ResizeObserver(()=>m.invalidateSize()).observe($("eqmap"));
+}
+const eqPop=r=>`<b>M ${r.m.toFixed(1)}</b> ${esc(r.pl)}<br>${esc(new Date(r.t).toLocaleString(loc(),{dateStyle:"medium",timeStyle:"short"}))}<br>${esc(T("gDepth"))} ${N(Math.round(r.dp))} ${esc(T("gKm"))}`+
+  (r.u&&r.u.startsWith("https://")?`<br><a href="${esc(r.u)}" target="_blank" rel="noopener">${esc(T("gUsgs"))}</a>`:"");
+function eqMapDraw(fit){
+  if(!EQ.map)return;const p=S.place;
+  EQ.layer.clearLayers();EQ.mk=[];EQ.pm.setLatLng([p.lat,p.lon]);
+  EQ.rows.map((_,i)=>i).sort((a,b)=>EQ.rows[a].m-EQ.rows[b].m).forEach(i=>{
+    const r=EQ.rows[i],c=mc(r.m),mk=L.circleMarker([r.lat,r.lon],{radius:Math.max(4,r.m*3.1),color:c,weight:1.5,fillColor:c,fillOpacity:.45}).bindPopup(()=>eqPop(r));
+    mk.addTo(EQ.layer);EQ.mk[i]=mk});
+  if(fit){
+    if(EQ.mode==="near"){const pts=EQ.rows.slice(0,150).map(r=>[r.lat,r.lon]);pts.push([p.lat,p.lon]);
+      EQ.map.fitBounds(L.latLngBounds(pts),{padding:[24,24],maxZoom:7,animate:false})}
+    else EQ.map.setView([18,40],2,{animate:false})}
+}
+function eqDraw(fit){
+  const R=EQ.rows,p=S.place;
+  R.forEach(r=>r.km=hav(p.lat,p.lon,r.lat,r.lon));
+  $("eqinfo").textContent=EQ.mode==="near"?T("gInfoNear",placeName(p)):"";
+  if(R.length){
+    const top=R.reduce((a,b)=>b.m>a.m?b:a),nr=R.reduce((a,b)=>b.km<a.km?b:a);
+    $("eqsum").innerHTML=[[T("gCount"),N(R.length),""],[T("gStrong"),"M"+top.m.toFixed(1),ago(top.t)],[T("gNearest"),"M"+nr.m.toFixed(1),gdist(nr.km)]]
+      .map(s=>`<div class="sm glass"><span>${esc(s[0])}</span><b>${esc(s[1])}</b> <span style="display:inline">${esc(s[2])}</span></div>`).join("");
+  }else $("eqsum").innerHTML="";
+  $("eqlist").innerHTML=R.length?R.slice(0,EQ.shown).map((r,i)=>
+    `<button class="eqi glass" type="button" data-k="${i}"><div class="mag" style="background:${mc(r.m)}">${r.m.toFixed(1)}</div><div class="eqt"><b>${esc(r.pl||"—")}</b><small>${esc(ago(r.t))} · ${esc(T("gDepth"))} ${N(Math.round(r.dp))} ${esc(T("gKm"))} · ${esc(gdist(r.km))} ${esc(T("gFrom"))}${r.ts?" · 🌊 "+esc(T("gTsu")):""}</small></div></button>`).join("")+
+    (R.length>EQ.shown?`<button class="btn" id="eqmore" type="button">${esc(T("gMore"))}</button>`:""):
+    `<p class="sub">${esc(T(EQ.mode==="near"?"gNoneNear":"gNone"))}</p>`;
+  digits($("eqinfo"));digits($("eqsum"));digits($("eqlist"));
+  eqMapDraw(fit);
+}
+async function eqLoad(force,silent){
+  const url=eqUrl(),id=++EQ.gen,c=EQ.cache[url];
+  if(!force&&c&&Date.now()-c.t<3e5){EQ.rows=c.rows;EQ.loaded=true;eqDraw(EQ.fit);EQ.fit=false;return}
+  if(!silent)$("eqlist").innerHTML=`<div class="sk s"></div><div class="sk s"></div>`;
+  if(EQ.ac)EQ.ac.abort();EQ.ac=new AbortController();
+  try{
+    const r=await fetch(url,{signal:EQ.ac.signal});if(!r.ok)throw 0;
+    const j=await r.json();
+    const rows=eqParse(j);
+    if(id!==EQ.gen)return;
+    EQ.cache[url]={t:Date.now(),rows};EQ.rows=rows;EQ.loaded=true;eqDraw(EQ.fit);EQ.fit=false;
+  }catch(e){
+    if(id!==EQ.gen||(e&&e.name==="AbortError"))return;
+    if(silent&&EQ.loaded)return;
+    $("eqlist").innerHTML=`<p class="sub">${esc(T("gEqErr"))} <button class="btn" id="eqretry" type="button">${esc(T("retry"))}</button></p>`;
+  }
+}
+function eqFocus(i){
+  const r=EQ.rows[i];if(!r||!EQ.map)return;
+  $("eqshe").classList.remove("big");$("eqexp").classList.remove("up");
+  EQ.map.setView([r.lat,r.lon],Math.max(EQ.map.getZoom(),5),{animate:!RM});
+  if(EQ.mk[i])EQ.mk[i].openPopup();
+}
+function eqSync(){
+  if(!EQ.started)return;const k=pk(S.place);if(k===EQ.pkey)return;
+  EQ.pkey=k;
+  if(EQ.mode==="near"){EQ.fit=true;EQ.shown=25;eqLoad()}else if(EQ.loaded)eqDraw(false);
+}
+function eqSeg(){$$("#eqseg button").forEach(b=>b.classList.toggle("on",b.dataset.e===EQ.mode))}
+$("eqseg").onclick=e=>{const b=e.target.closest("[data-e]");if(!b||b.dataset.e===EQ.mode)return;
+  EQ.mode=b.dataset.e;store.set("eqm",EQ.mode);EQ.shown=25;EQ.fit=true;EQ.pkey=pk(S.place);eqSeg();eqLoad()};
+$("eqlist").onclick=e=>{
+  if(e.target.closest("#eqretry")){eqLoad(true);return}
+  if(e.target.closest("#eqmore")){EQ.shown+=25;eqDraw(false);return}
+  const b=e.target.closest("[data-k]");if(b)eqFocus(+b.dataset.k)};
+
+/* ===== wiring ===== */
+const TZ={key:"",gen:0,st:null,started:false};
+function teaserShow(){
+  const el=$("gteqs");
+  if(TZ.st===null)el.textContent=T("gEqSub");
+  else if(TZ.st==="none")el.textContent=T("gTzNone");
+  else el.textContent=T("gTzLatest",TZ.st.m.toFixed(1),gdist(TZ.st.km),ago(TZ.st.t));
+  digits(el);
+}
+async function teaserEq(){
+  const p=S.place,id=++TZ.gen,url=eqUrl("near");TZ.key=pk(p);
+  let rows;const c=EQ.cache[url];
+  if(c&&Date.now()-c.t<3e5)rows=c.rows;
+  else{try{const r=await fetch(url);if(!r.ok)throw 0;rows=eqParse(await r.json());EQ.cache[url]={t:Date.now(),rows}}catch{return}}
+  if(id!==TZ.gen)return;
+  TZ.st=rows.length?{m:rows[0].m,t:rows[0].t,km:hav(p.lat,p.lon,rows[0].lat,rows[0].lon)}:"none";
+  teaserShow();
+}
+/* ---------- Privacy Policy + Terms of Use ---------- */
+Object.assign(I.en,{
+ lgPL:"Privacy Policy",lgTL:"Terms of Use",lgPT:"Privacy Policy",lgTT:"Terms of Use",lgUpd:"Last updated: October 22, 2026",lgOther:"Also read",
+ lgPriv:`<p>Skyline Weather ("Skyline", "we") is a free weather web app. This page explains in plain words what data the app uses, where it goes, and what you can control.</p>
+<p><b>Short version:</b> there are no accounts, no ads, no analytics and no tracking from us, and we run no server that stores your data. Your settings stay on your own device. To show weather, your browser talks directly to the third-party services listed below.</p>
+
+<h3>1. What we collect</h3>
+<p>Nothing. We do not collect, store, sell or share personal data, because the app has no account system and no database.</p>
+
+<h3>2. What is saved on your device</h3>
+<p>The app saves a few items in your browser's local storage so it works the way you left it:</p>
+<ul><li>the last place you chose (name and coordinates)</li><li>your saved places (up to 8)</li><li>your choices: °C or °F, language, animations on or off, earthquake map view</li><li>the last weather result, so the app opens instantly</li></ul>
+<p>Your browser may also keep the app's files and fonts in a cache for faster loading. None of this is sent to us. You can remove it any time by clearing this site's data in your browser settings, or by uninstalling the app.</p>
+
+<h3>3. Your location</h3>
+<p>The app only asks for your location when you tap the 📍 button, and your browser asks for your permission first. You can refuse, or withdraw it later in your browser's site settings. If you allow it, your device's coordinates (which can be quite precise) are used to get the weather, are shown as "Your location", and are saved on your device as your last place until you choose another place or clear the data. We never see your location, because there is no server of ours involved.</p>
+
+<h3>4. Which services receive data</h3>
+<p>Your browser sends requests straight to the services below. Each one automatically sees your IP address and basic browser details, like any website does. Each service has its own privacy rules, and we do not control them.</p>
+<ul>
+<li><b>Open-Meteo</b> (weather, air quality, place search): the coordinates of the place you view, and the text you type in the search box (after 2 letters). Open-Meteo says its free service may keep server logs, which may include coordinates, for up to 90 days and that it does not share them with third parties. <a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener">Terms</a></li>
+<li><b>RainViewer</b> (rain radar): requests for radar frames and map images for the area you are viewing. <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">rainviewer.com</a></li>
+<li><b>OpenStreetMap</b> (map background): requests for map tiles for the area and zoom you view. <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">Tile policy</a></li>
+<li><b>USGS</b> (earthquakes): for "Near this place", the place's coordinates (rounded to 3 decimals) and a search radius; the world views send no location. <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">earthquake.usgs.gov</a></li>
+<li><b>Google Fonts</b>: the font files. The Bangla font is only requested when you choose Bangla. <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
+<li><b>cdnjs (Cloudflare)</b>: the map library files, loaded when you scroll to or open the radar or earthquake screens. <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare Privacy Policy</a></li>
+<li><b>Web host</b>: the site is served by a hosting provider (for example GitHub Pages). Like any host, it can log technical details such as IP address, browser and time when you load the page. <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub Privacy Statement</a></li>
+<li><b>WhatsApp</b>: when you tap "Share on WhatsApp", WhatsApp opens with a ready message (place, conditions, rain chance and "Skyline Weather"). Nothing is sent until you pick a chat and press send. After that, WhatsApp's own policy applies. <a href="https://www.whatsapp.com/legal/privacy-policy" target="_blank" rel="noopener">WhatsApp Privacy Policy</a></li>
+</ul>
+<p>Because these services run on servers that may be outside Bangladesh, your requests can travel to other countries.</p>
+
+<h3>5. Cookies and tracking</h3>
+<p>Our code does not set cookies and has no analytics, advertising or tracking tools.</p>
+
+<h3>6. Children</h3>
+<p>Skyline is a general weather app and is not aimed at young children. We do not knowingly collect personal data from anyone, including children.</p>
+
+<h3>7. Your choices</h3>
+<ul><li>Do not tap 📍, or deny the permission, and nothing about your position is used.</li><li>Clear this site's data in your browser to erase everything saved on your device.</li><li>Do not open the radar or earthquake screens if you prefer not to contact those services.</li></ul>
+<p>We aim to follow applicable data protection laws, including Bangladesh's Personal Data Protection Ordinance 2025 as its provisions come into force.</p>
+
+<h3>8. Changes</h3>
+<p>If this policy changes, we will update the date at the top of this page. Please check it from time to time.</p>
+
+<h3>9. Contact</h3>
+<p>Questions or requests: <a href="mailto:rakibhossain@tuta.io">rakibhossain@tuta.io</a></p>`,
+ lgTerms:`<p>By using Skyline Weather ("Skyline", "the app") you agree to these terms. If you do not agree, please do not use the app.</p>
+
+<h3>1. What the app is</h3>
+<p>Skyline is a free app that shows weather, air quality, rain radar and earthquake information, with a special section for the districts of Bangladesh. It needs no account.</p>
+
+<h3>2. Information only, not safety advice</h3>
+<p>Forecasts are estimates and can be wrong. Rain alerts, tips and earthquake lists are for general information. They are not an emergency warning system. Do not rely on Skyline for decisions that affect safety, health, travel, farming, fishing or property. For official warnings, follow the Bangladesh Meteorological Department, your local authorities and emergency services.</p>
+
+<h3>3. Data sources and licences</h3>
+<ul>
+<li><b>Weather, air quality and place search:</b> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, licensed <span class="nd">CC BY 4.0</span>. Open-Meteo combines open data from national weather services and other providers. Place data comes from GeoNames (<span class="nd">CC BY 4.0</span>).</li>
+<li><b>Rain radar:</b> <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>, which offers its free service for personal and educational use only.</li>
+<li><b>Maps:</b> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</li>
+<li><b>Earthquakes:</b> <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">U.S. Geological Survey</a>. USGS-authored data is in the U.S. public domain, and credit is requested.</li>
+</ul>
+<p>These providers are independent. Their data can be late, incomplete or unavailable, and a provider may change or stop its service, which can change or remove a feature in Skyline.</p>
+
+<h3>4. Free and non-commercial use</h3>
+<p>Skyline is a free, non-commercial project. Some data providers allow free use only for non-commercial or personal purposes. You agree not to use data from the app for commercial purposes beyond what those providers' terms allow.</p>
+
+<h3>5. Acceptable use</h3>
+<ul><li>Do not use the app unlawfully.</li><li>Do not try to disrupt the app or the services behind it, for example with automated or excessive requests.</li><li>Do not remove credits and links to the data providers.</li></ul>
+
+<h3>6. Ownership</h3>
+<p>The app's design and code belong to its developer. Third-party data, maps and trademarks belong to their owners and are used under their own licences.</p>
+
+<h3>7. No warranty</h3>
+<p>The app and all information in it are provided "as is" and "as available", without any promise of accuracy, completeness, availability or fitness for a particular purpose.</p>
+
+<h3>8. Limit of liability</h3>
+<p>To the extent allowed by law, the developer is not liable for any loss or damage that comes from using the app or relying on its information, including losses caused by wrong forecasts or by a data provider being unavailable.</p>
+
+<h3>9. Privacy</h3>
+<p>Please read our <a href="#" data-lg="privacy">Privacy Policy</a> to see how data is handled.</p>
+
+<h3>10. Changes to the app and these terms</h3>
+<p>We may change or stop any part of the app, and we may update these terms. The date at the top shows the latest version. If you keep using the app after a change, you accept the new terms.</p>
+
+<h3>11. Governing law</h3>
+<p>These terms are governed by the laws of Bangladesh.</p>
+
+<h3>12. Contact</h3>
+<p>Questions: <a href="mailto:rakibhossain@tuta.io">rakibhossain@tuta.io</a></p>`
+});
+Object.assign(I.bn,{
+ lgPL:"গোপনীয়তা নীতি",lgTL:"ব্যবহারের শর্তাবলি",lgPT:"গোপনীয়তা নীতি",lgTT:"ব্যবহারের শর্তাবলি",lgUpd:"সর্বশেষ হালনাগাদ: ২২ অক্টোবর ২০২৬",lgOther:"আরও পড়ুন",
+ lgPriv:`<p>Skyline Weather ("স্কাইলাইন", "আমরা") একটি বিনামূল্যের আবহাওয়া ওয়েব অ্যাপ। এই পাতায় সহজ ভাষায় বলা হয়েছে অ্যাপটি কোন তথ্য ব্যবহার করে, সেই তথ্য কোথায় যায় এবং আপনি কী নিয়ন্ত্রণ করতে পারেন।</p>
+<p><b>সংক্ষেপে:</b> কোনো অ্যাকাউন্ট নেই, বিজ্ঞাপন নেই, অ্যানালিটিক্স বা ট্র্যাকিং নেই, এবং আপনার তথ্য জমা রাখার মতো কোনো সার্ভারও আমাদের নেই। আপনার সেটিংস শুধু আপনার ডিভাইসেই থাকে। আবহাওয়া দেখাতে আপনার ব্রাউজার নিচে তালিকাভুক্ত তৃতীয় পক্ষের সেবাগুলোর সঙ্গে সরাসরি যোগাযোগ করে।</p>
+
+<h3>১. আমরা কী সংগ্রহ করি</h3>
+<p>কিছুই না। অ্যাপে কোনো অ্যাকাউন্ট ব্যবস্থা বা ডেটাবেস নেই, তাই আমরা ব্যক্তিগত তথ্য সংগ্রহ, জমা, বিক্রি বা শেয়ার করি না।</p>
+
+<h3>২. আপনার ডিভাইসে কী সংরক্ষিত থাকে</h3>
+<p>আপনি যেভাবে অ্যাপ রেখে গিয়েছিলেন সেভাবেই যেন খোলে, সেজন্য ব্রাউজারের লোকাল স্টোরেজে কয়েকটি জিনিস রাখা হয়:</p>
+<ul><li>সর্বশেষ বেছে নেওয়া জায়গা (নাম ও স্থানাঙ্ক)</li><li>সংরক্ষিত জায়গা (সর্বোচ্চ ৮টি)</li><li>আপনার পছন্দ: °C না °F, ভাষা, অ্যানিমেশন চালু বা বন্ধ, ভূমিকম্পের মানচিত্রের ধরন</li><li>সর্বশেষ আবহাওয়ার ফলাফল, যাতে অ্যাপ সঙ্গে সঙ্গে খোলে</li></ul>
+<p>দ্রুত লোড হওয়ার জন্য ব্রাউজার অ্যাপের ফাইল ও ফন্ট ক্যাশেও রাখতে পারে। এর কিছুই আমাদের কাছে পাঠানো হয় না। ব্রাউজার সেটিংসে এই সাইটের ডেটা মুছে দিলে, অথবা অ্যাপ আনইনস্টল করলে এগুলো যেকোনো সময় মুছে যায়।</p>
+
+<h3>৩. আপনার অবস্থান</h3>
+<p>আপনি 📍 বোতামে ট্যাপ করলেই অ্যাপ আপনার অবস্থান চায়, এবং তার আগে ব্রাউজার আপনার অনুমতি চায়। আপনি না করতে পারেন, বা পরে ব্রাউজারের সাইট সেটিংসে অনুমতি তুলে নিতে পারেন। অনুমতি দিলে আপনার ডিভাইসের স্থানাঙ্ক (যা বেশ নির্ভুল হতে পারে) দিয়ে আবহাওয়া আনা হয়, "আপনার অবস্থান" নামে দেখানো হয়, এবং আপনি অন্য জায়গা বেছে না নেওয়া বা ডেটা না মোছা পর্যন্ত সর্বশেষ জায়গা হিসেবে আপনার ডিভাইসে থাকে। আমরা কখনো আপনার অবস্থান দেখতে পাই না, কারণ এতে আমাদের কোনো সার্ভার জড়িত নয়।</p>
+
+<h3>৪. কোন সেবা কী তথ্য পায়</h3>
+<p>আপনার ব্রাউজার নিচের সেবাগুলোতে সরাসরি অনুরোধ পাঠায়। যেকোনো ওয়েবসাইটের মতো প্রতিটি সেবা স্বয়ংক্রিয়ভাবে আপনার আইপি অ্যাড্রেস ও ব্রাউজারের সাধারণ তথ্য দেখতে পায়। প্রতিটি সেবার নিজস্ব গোপনীয়তা নিয়ম আছে, যা আমাদের নিয়ন্ত্রণে নেই।</p>
+<ul>
+<li><b>Open-Meteo</b> (আবহাওয়া, বাতাসের মান, জায়গা খোঁজা): আপনি যে জায়গা দেখছেন তার স্থানাঙ্ক, এবং সার্চ বক্সে আপনি যা লেখেন (২ অক্ষরের পর)। Open-Meteo জানায়, তাদের বিনামূল্যের সেবায় সার্ভার লগ থাকতে পারে, যাতে স্থানাঙ্কও থাকতে পারে, তা সর্বোচ্চ ৯০ দিন রাখা হয়, এবং তৃতীয় পক্ষের সঙ্গে শেয়ার করা হয় না। <a href="https://open-meteo.com/en/terms" target="_blank" rel="noopener">শর্তাবলি</a></li>
+<li><b>RainViewer</b> (বৃষ্টির রাডার): আপনি যে এলাকা দেখছেন তার রাডার ফ্রেম ও মানচিত্রের ছবির অনুরোধ। <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">rainviewer.com</a></li>
+<li><b>OpenStreetMap</b> (মানচিত্রের পটভূমি): আপনি যে এলাকা ও জুমে দেখছেন তার মানচিত্র টাইলের অনুরোধ। <a href="https://operations.osmfoundation.org/policies/tiles/" target="_blank" rel="noopener">টাইল নীতি</a></li>
+<li><b>USGS</b> (ভূমিকম্প): "এই জায়গার কাছে" দেখলে জায়গাটির স্থানাঙ্ক (৩ দশমিক পর্যন্ত গোল করা) ও খোঁজার ব্যাসার্ধ; বিশ্বের তালিকায় কোনো অবস্থান পাঠানো হয় না। <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">earthquake.usgs.gov</a></li>
+<li><b>Google Fonts</b>: ফন্ট ফাইল। বাংলা ফন্ট শুধু তখনই আনা হয় যখন আপনি বাংলা বেছে নেন। <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google গোপনীয়তা নীতি</a></li>
+<li><b>cdnjs (Cloudflare)</b>: মানচিত্রের লাইব্রেরি ফাইল, রাডার বা ভূমিকম্পের অংশে স্ক্রল করলে বা খুললে লোড হয়। <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare গোপনীয়তা নীতি</a></li>
+<li><b>ওয়েব হোস্ট</b>: সাইটটি একটি হোস্টিং সেবা (যেমন GitHub Pages) থেকে দেওয়া হয়। অন্য যেকোনো হোস্টের মতো এটি পাতা লোড হওয়ার সময় আইপি অ্যাড্রেস, ব্রাউজার ও সময়ের মতো প্রযুক্তিগত তথ্য লগ করতে পারে। <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub গোপনীয়তা বিবৃতি</a></li>
+<li><b>WhatsApp</b>: "হোয়াটসঅ্যাপে শেয়ার" চাপলে একটি তৈরি বার্তা (জায়গা, আবহাওয়া, বৃষ্টির সম্ভাবনা ও "Skyline Weather") নিয়ে WhatsApp খোলে। আপনি চ্যাট বেছে পাঠান না চাপা পর্যন্ত কিছুই পাঠানো হয় না। তারপর WhatsApp-এর নিজস্ব নীতি প্রযোজ্য। <a href="https://www.whatsapp.com/legal/privacy-policy" target="_blank" rel="noopener">WhatsApp গোপনীয়তা নীতি</a></li>
+</ul>
+<p>এই সেবাগুলোর সার্ভার বাংলাদেশের বাইরে থাকতে পারে, তাই আপনার অনুরোধ অন্য দেশেও যেতে পারে।</p>
+
+<h3>৫. কুকি ও ট্র্যাকিং</h3>
+<p>আমাদের কোড কোনো কুকি সেট করে না, এবং এতে কোনো অ্যানালিটিক্স, বিজ্ঞাপন বা ট্র্যাকিং টুল নেই।</p>
+
+<h3>৬. শিশু</h3>
+<p>স্কাইলাইন একটি সাধারণ আবহাওয়া অ্যাপ, ছোট শিশুদের জন্য তৈরি নয়। আমরা জেনেশুনে কারও, শিশুদেরও, ব্যক্তিগত তথ্য সংগ্রহ করি না।</p>
+
+<h3>৭. আপনার পছন্দ</h3>
+<ul><li>📍 না চাপলে বা অনুমতি না দিলে আপনার অবস্থান কোনোভাবেই ব্যবহার হয় না।</li><li>ব্রাউজারে এই সাইটের ডেটা মুছলে আপনার ডিভাইসে সংরক্ষিত সবকিছু মুছে যায়।</li><li>ওই সেবাগুলোর সঙ্গে যোগাযোগ না চাইলে রাডার বা ভূমিকম্পের অংশ খুলবেন না।</li></ul>
+<p>আমরা প্রযোজ্য তথ্য সুরক্ষা আইন মেনে চলার চেষ্টা করি, এর মধ্যে বাংলাদেশের ব্যক্তিগত উপাত্ত সুরক্ষা অধ্যাদেশ ২০২৫-ও আছে, যার বিধানগুলো কার্যকর হওয়ার সঙ্গে সঙ্গে।</p>
+
+<h3>৮. পরিবর্তন</h3>
+<p>এই নীতি বদলালে আমরা এই পাতার ওপরের তারিখ হালনাগাদ করব। মাঝে মাঝে দেখে নেবেন।</p>
+
+<h3>৯. যোগাযোগ</h3>
+<p>প্রশ্ন বা অনুরোধ: <a href="mailto:rakibhossain@tuta.io">rakibhossain@tuta.io</a></p>`,
+ lgTerms:`<p>Skyline Weather ("স্কাইলাইন", "অ্যাপ") ব্যবহার করলে আপনি এই শর্তগুলো মেনে নিচ্ছেন। রাজি না হলে অনুগ্রহ করে অ্যাপটি ব্যবহার করবেন না।</p>
+
+<h3>১. অ্যাপটি কী</h3>
+<p>স্কাইলাইন একটি বিনামূল্যের অ্যাপ, যেখানে আবহাওয়া, বাতাসের মান, বৃষ্টির রাডার ও ভূমিকম্পের তথ্য দেখা যায়, সঙ্গে বাংলাদেশের জেলাগুলোর জন্য আলাদা অংশ আছে। এর জন্য কোনো অ্যাকাউন্ট লাগে না।</p>
+
+<h3>২. শুধু তথ্যের জন্য, নিরাপত্তার পরামর্শ নয়</h3>
+<p>পূর্বাভাস আনুমানিক এবং ভুলও হতে পারে। বৃষ্টির সতর্কতা, পরামর্শ ও ভূমিকম্পের তালিকা সাধারণ তথ্যের জন্য। এগুলো জরুরি সতর্কতা ব্যবস্থা নয়। নিরাপত্তা, স্বাস্থ্য, ভ্রমণ, চাষাবাদ, মাছ ধরা বা সম্পত্তি সম্পর্কিত সিদ্ধান্তে স্কাইলাইনের ওপর নির্ভর করবেন না। সরকারি সতর্কবার্তার জন্য বাংলাদেশ আবহাওয়া অধিদপ্তর, স্থানীয় কর্তৃপক্ষ ও জরুরি সেবার নির্দেশ অনুসরণ করুন।</p>
+
+<h3>৩. তথ্যের উৎস ও লাইসেন্স</h3>
+<ul>
+<li><b>আবহাওয়া, বাতাসের মান ও জায়গা খোঁজা:</b> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, লাইসেন্স <span class="nd">CC BY 4.0</span>। Open-Meteo বিভিন্ন দেশের আবহাওয়া সংস্থা ও অন্যান্য উৎসের উন্মুক্ত তথ্য একত্র করে। জায়গার তথ্য আসে GeoNames থেকে (<span class="nd">CC BY 4.0</span>)।</li>
+<li><b>বৃষ্টির রাডার:</b> <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>, যারা বিনামূল্যের সেবা শুধু ব্যক্তিগত ও শিক্ষামূলক ব্যবহারের জন্য দেয়।</li>
+<li><b>মানচিত্র:</b> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> অবদানকারীগণ।</li>
+<li><b>ভূমিকম্প:</b> <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">মার্কিন ভূতাত্ত্বিক জরিপ (USGS)</a>। USGS-এর নিজস্ব তথ্য মার্কিন পাবলিক ডোমেইনে, এবং কৃতজ্ঞতা স্বীকার চাওয়া হয়েছে।</li>
+</ul>
+<p>এই উৎসগুলো স্বাধীন। তাদের তথ্য দেরিতে আসতে, অসম্পূর্ণ হতে বা না-ও পাওয়া যেতে পারে, এবং কোনো উৎস সেবা বদলালে বা বন্ধ করলে স্কাইলাইনের কোনো ফিচার বদলে বা সরে যেতে পারে।</p>
+
+<h3>৪. বিনামূল্যে ও অবাণিজ্যিক ব্যবহার</h3>
+<p>স্কাইলাইন একটি বিনামূল্যের, অবাণিজ্যিক প্রকল্প। কিছু তথ্যদাতা শুধু ব্যক্তিগত বা অবাণিজ্যিক কাজে বিনামূল্যে ব্যবহার করতে দেয়। ওই তথ্যদাতাদের শর্তে যতটুকু অনুমোদিত, তার বাইরে বাণিজ্যিক কাজে অ্যাপের তথ্য ব্যবহার না করতে আপনি রাজি হচ্ছেন।</p>
+
+<h3>৫. গ্রহণযোগ্য ব্যবহার</h3>
+<ul><li>অ্যাপটি বেআইনিভাবে ব্যবহার করবেন না।</li><li>স্বয়ংক্রিয় বা অতিরিক্ত অনুরোধ পাঠিয়ে অ্যাপ বা এর পেছনের সেবা বিঘ্নিত করার চেষ্টা করবেন না।</li><li>তথ্যদাতাদের নাম ও লিংক মুছবেন না।</li></ul>
+
+<h3>৬. মালিকানা</h3>
+<p>অ্যাপের ডিজাইন ও কোড এর নির্মাতার। তৃতীয় পক্ষের তথ্য, মানচিত্র ও ট্রেডমার্ক তাদের নিজ নিজ মালিকের, এবং সেগুলো তাদের লাইসেন্সের অধীনে ব্যবহার করা হয়েছে।</p>
+
+<h3>৭. কোনো নিশ্চয়তা নেই</h3>
+<p>অ্যাপ ও এর সব তথ্য "যেমন আছে" এবং "যেমন পাওয়া যায়" ভিত্তিতে দেওয়া হয়, নির্ভুলতা, সম্পূর্ণতা, সবসময় পাওয়া যাওয়া বা কোনো নির্দিষ্ট কাজের উপযোগিতার কোনো প্রতিশ্রুতি ছাড়া।</p>
+
+<h3>৮. দায়ের সীমা</h3>
+<p>আইনে যতটুকু অনুমোদিত, অ্যাপ ব্যবহার বা এর তথ্যের ওপর নির্ভর করার ফলে হওয়া কোনো ক্ষতির জন্য নির্মাতা দায়ী নন, ভুল পূর্বাভাস বা কোনো তথ্যদাতার সেবা না পাওয়ার কারণে হওয়া ক্ষতিও এর মধ্যে পড়ে।</p>
+
+<h3>৯. গোপনীয়তা</h3>
+<p>তথ্য কীভাবে সামলানো হয় তা জানতে আমাদের <a href="#" data-lg="privacy">গোপনীয়তা নীতি</a> পড়ুন।</p>
+
+<h3>১০. অ্যাপ ও শর্তের পরিবর্তন</h3>
+<p>আমরা অ্যাপের যেকোনো অংশ বদলাতে বা বন্ধ করতে পারি, এবং এই শর্ত হালনাগাদ করতে পারি। ওপরের তারিখ থেকে সর্বশেষ সংস্করণ বোঝা যায়। পরিবর্তনের পরও অ্যাপ ব্যবহার করলে আপনি নতুন শর্ত মেনে নিচ্ছেন।</p>
+
+<h3>১১. প্রযোজ্য আইন</h3>
+<p>এই শর্তাবলি বাংলাদেশের আইন দ্বারা পরিচালিত।</p>
+
+<h3>১২. যোগাযোগ</h3>
+<p>প্রশ্ন: <a href="mailto:rakibhossain@tuta.io">rakibhossain@tuta.io</a></p>`
+});
+let LG="privacy";
+function legalRender(n){
+  if(n)LG=n;
+  $("legaltt").textContent=T(LG==="privacy"?"lgPT":"lgTT");
+  const other=LG==="privacy"?"terms":"privacy";
+  $("legalbody").innerHTML=`<p class="sub">${esc(T("lgUpd"))}</p>`+T(LG==="privacy"?"lgPriv":"lgTerms")+
+    `<p class="lgsw">${esc(T("lgOther"))}: <a href="#" data-lg="${other}">${esc(T(other==="privacy"?"lgPL":"lgTL"))}</a></p>`;
+  digits($("legalbody"));
+}
+$("legalbody").addEventListener("click",e=>{const a=e.target.closest("[data-lg]");if(!a)return;e.preventDefault();legalRender(a.dataset.lg);$("legalbody").scrollTop=0});
+$("legal").addEventListener("click",e=>{const b=e.target.closest("[data-lg]");if(b)ovOpen(b.dataset.lg)});
+
+const OV={open:null,pushed:false};
+const ovEl=n=>$(n==="rad"?"radsec":n==="eq"?"eqsec":"legalsec");
+function eqStart(){
+  if(!EQ.started){EQ.started=true;EQ.pkey=pk(S.place);eqMapInit();EQ.fit=true;eqLoad()}
+  else{EQ.pkey="";eqSync()}
+}
+function ovPlace(){const t=placeName(S.place)+(S.place.country?", "+placeCountry(S.place):"");$("radplace").textContent=t;$("eqplace").textContent=t}
+async function ovOpen(n){
+  if(OV.open)return;
+  OV.open=n;ovPlace();ovEl(n).hidden=false;
+  document.documentElement.classList.add("ovlock");document.body.classList.add("ovlock");
+  try{history.pushState({ov:n},"");OV.pushed=true}catch{OV.pushed=false}
+  const b=ovEl(n).querySelector("[data-close]");if(b)b.focus();
+  if(n==="privacy"||n==="terms"){legalRender(n);$("legalbody").scrollTop=0;return}
+  try{await loadLeaflet()}catch{gmsg(n==="rad"?"radmsg":"eqmsg",esc(T("gNoLib")));return}
+  if(OV.open!==n)return;
+  if(n==="rad"){radarInit();if(RD.map&&RD.frames.length&&Date.now()-RD.at>3e5)radarLoad()}else eqStart();
+  setTimeout(()=>{const m=n==="rad"?RD.map:EQ.map;if(m)m.invalidateSize()},60);
+}
+function ovClose(fromPop){
+  if(!OV.open)return;
+  const n=OV.open;OV.open=null;ovEl(n).hidden=true;
+  document.documentElement.classList.remove("ovlock");document.body.classList.remove("ovlock");
+  radarPause();
+  if(!raf&&S.fx){lastT=0;raf=requestAnimationFrame(tick)}
+  if(!fromPop&&OV.pushed){OV.pushed=false;try{history.back()}catch{}}else OV.pushed=false;
+}
+addEventListener("popstate",()=>{if(OV.open)ovClose(true)});
+addEventListener("keydown",e=>{if(e.key==="Escape"&&OV.open)ovClose()});
+$$("[data-close]").forEach(b=>b.onclick=()=>ovClose());
+$("eqexp").onclick=()=>{const big=$("eqshe").classList.toggle("big");$("eqexp").classList.toggle("up",big)};
+$("gtrad").onclick=()=>ovOpen("rad");
+$("gteq").onclick=()=>ovOpen("eq");
+function geoSync(){radarSync();eqSync();ovPlace();if(TZ.started&&pk(S.place)!==TZ.key){TZ.st=null;teaserShow();teaserEq()}}
+function geoLang(){
+  setPlayBtn();ovPlace();$$("[data-close]").forEach(b=>b.setAttribute("aria-label",T("gBack")));$("rctr").title=T("gCenter");$("rctr").setAttribute("aria-label",T("gCenter"));
+  $("radnote").innerHTML=T("gRadNote");$("eqnote").innerHTML=T("gEqNote");
+  if(OV.open==="privacy"||OV.open==="terms")legalRender();
+  digits($("radnote"));digits($("eqnote"));
+  if(RD.frames.length)$("rtime").textContent=rtime(RD.idx);
+  eqSeg();teaserShow();
+  if(EQ.loaded)eqDraw(false);
+}
+new MutationObserver(()=>{applyBase(RD.map);applyBase(EQ.map)}).observe(document.body,{attributes:true,attributeFilter:["data-sky","class"]});
+whenSeen($("geot"),()=>{TZ.started=true;teaserEq();loadLeaflet().catch(()=>{})});
+setInterval(()=>{if(document.hidden||!OV.open)return;if(OV.open==="rad"&&RD.map&&!RD.playing)radarLoad();if(OV.open==="eq"&&EQ.started)eqLoad(true,true)},3e5);
+
+{const bar=document.querySelector(".bar");let on=false;addEventListener("scroll",()=>{const v=scrollY>6;if(v!==on){on=v;bar.classList.toggle("scrolled",v)}},{passive:true})}
+/* ---------- start ---------- */
+applyLang();
+size();buildVillage();fx("clear",{});
+const cached=store.get("wc",null);
+if(cached&&cached.w&&cached.k===cacheKey()){LAST={k:cached.k,w:cached.w,aq:cached.aq,past:cached.past};try{render(LAST.w,LAST.aq,LAST.past)}catch{LAST=null;first=true}}
+load(!!LAST);
+</script>
+</body>
+</html>
